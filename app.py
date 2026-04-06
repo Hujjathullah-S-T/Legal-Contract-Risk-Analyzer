@@ -661,61 +661,99 @@ st.session_state.setdefault("latest_result", None)
 st.session_state.setdefault("contract_text", "")
 st.session_state.setdefault("uploaded_contract_text", "")
 st.session_state.setdefault("uploaded_contract_name", "Uploaded Contract")
+st.session_state.setdefault("current_page", "📊 Dashboard")
 
 st.markdown(
     """
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
         html, body, [class*="css"] { font-family: 'Manrope', sans-serif; color: #e5eef9; }
+        .block-container { padding-top: 1.6rem; padding-bottom: 2rem; max-width: 1320px; }
         .stApp {
             background:
-                radial-gradient(circle at top left, rgba(59, 130, 246, 0.24), transparent 25%),
-                radial-gradient(circle at top right, rgba(217, 72, 95, 0.18), transparent 22%),
-                linear-gradient(135deg, #081120 0%, #0f172a 50%, #111827 100%);
+                radial-gradient(circle at top left, rgba(14, 165, 233, 0.10), transparent 24%),
+                radial-gradient(circle at top right, rgba(16, 185, 129, 0.10), transparent 24%),
+                linear-gradient(135deg, #071018 0%, #0b1722 46%, #101b27 100%);
         }
         [data-testid="stSidebar"] {
-            background: linear-gradient(180deg, #0b1220 0%, #111827 100%);
-            border-right: 1px solid rgba(148, 163, 184, 0.12);
+            background: linear-gradient(180deg, #08141c 0%, #0f1b27 100%);
+            border-right: 1px solid rgba(148, 163, 184, 0.10);
         }
         .hero-card, .panel-card, .metric-card, .result-card, .empty-card, .sentence-card {
-            border-radius: 24px;
-            background: rgba(15, 23, 42, 0.82);
-            border: 1px solid rgba(148, 163, 184, 0.14);
-            box-shadow: 0 22px 60px rgba(2, 6, 23, 0.34);
-            backdrop-filter: blur(14px);
-            padding: 1.2rem 1.3rem;
-            margin-bottom: 0.9rem;
+            border-radius: 20px;
+            background: rgba(15, 23, 42, 0.74);
+            border: 1px solid rgba(148, 163, 184, 0.12);
+            box-shadow: 0 18px 40px rgba(2, 6, 23, 0.24);
+            backdrop-filter: blur(12px);
+            padding: 1.15rem 1.2rem;
+            margin-bottom: 0.85rem;
         }
-        .hero-card { padding: 2rem 2.2rem; }
-        .eyebrow { display: inline-block; padding: 0.55rem 0.95rem; border-radius: 999px; background: rgba(30, 41, 59, 0.9); color: #93c5fd; font-size: 0.78rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; }
-        .hero-title { margin: 1rem 0 0.65rem; font-size: clamp(2rem, 3vw, 4rem); font-weight: 800; line-height: 1; color: #f8fafc; }
-        .hero-copy, .body-copy, .subtle-copy { color: #94a3b8; line-height: 1.7; font-size: 1rem; }
-        .section-title { margin: 0; color: #f8fafc; font-size: 1.25rem; font-weight: 800; }
-        .helper-row { display: flex; gap: 0.6rem; flex-wrap: wrap; margin: 1rem 0 1.1rem; }
-        .pill, .chip { display: inline-block; padding: 0.45rem 0.75rem; border-radius: 999px; font-size: 0.8rem; font-weight: 800; }
-        .high { color: #d9485f; background: rgba(217,72,95,0.14); }
-        .medium { color: #f08c2b; background: rgba(240,140,43,0.16); }
-        .low { color: #2f9e44; background: rgba(47,158,68,0.15); }
-        .ambiguous { color: #7c3aed; background: rgba(124,58,237,0.14); }
-        .status-banner { border-radius: 22px; padding: 1.35rem; color: white; margin-bottom: 1rem; }
-        .status-banner.high { background: linear-gradient(135deg, #b4233d, #d9485f, #ef476f); }
-        .status-banner.medium { background: linear-gradient(135deg, #c76a09, #f08c2b, #f7b267); }
-        .status-banner.low { background: linear-gradient(135deg, #1f7a39, #2f9e44, #57cc99); }
-        .status-banner.neutral { background: linear-gradient(135deg, #285fcb, #3b82f6, #60a5fa); }
-        .status-label { font-size: 0.8rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; }
-        .status-title { margin: 0.5rem 0 0.35rem; font-size: 1.8rem; font-weight: 800; }
+        .hero-card { padding: 2.1rem 2.2rem; margin-bottom: 1.15rem; }
+        .eyebrow { display: inline-block; padding: 0.5rem 0.9rem; border-radius: 999px; background: rgba(14, 165, 233, 0.12); color: #7dd3fc; font-size: 0.74rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; }
+        .hero-title { margin: 0.95rem 0 0.65rem; max-width: 820px; font-size: clamp(2.1rem, 3vw, 3.4rem); font-weight: 800; line-height: 1.05; color: #f8fafc; }
+        .hero-copy, .body-copy, .subtle-copy { color: #94a3b8; line-height: 1.72; font-size: 0.98rem; }
+        .section-title { margin: 0; color: #f8fafc; font-size: 1.12rem; font-weight: 800; letter-spacing: 0.01em; }
+        .helper-row { display: flex; gap: 0.55rem; flex-wrap: wrap; margin: 0.9rem 0 0.95rem; }
+        .pill, .chip { display: inline-block; padding: 0.4rem 0.7rem; border-radius: 999px; font-size: 0.78rem; font-weight: 800; }
+        .high { color: #fb7185; background: rgba(251,113,133,0.14); }
+        .medium { color: #fbbf24; background: rgba(251,191,36,0.16); }
+        .low { color: #34d399; background: rgba(52,211,153,0.15); }
+        .ambiguous { color: #67e8f9; background: rgba(103,232,249,0.14); }
+        .status-banner { border-radius: 18px; padding: 1.15rem 1.2rem; color: white; margin-bottom: 0.9rem; }
+        .status-banner.high { background: linear-gradient(135deg, #9f1239, #e11d48, #fb7185); }
+        .status-banner.medium { background: linear-gradient(135deg, #a16207, #f59e0b, #fbbf24); }
+        .status-banner.low { background: linear-gradient(135deg, #047857, #10b981, #34d399); }
+        .status-banner.neutral { background: linear-gradient(135deg, #0f766e, #0891b2, #22d3ee); }
+        .status-label { font-size: 0.74rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; opacity: 0.92; }
+        .status-title { margin: 0.45rem 0 0.25rem; font-size: 1.65rem; font-weight: 800; }
         .metric-label { color: #94a3b8; font-size: 0.9rem; margin-bottom: 0.5rem; }
-        .metric-value { font-size: 1.9rem; font-weight: 800; line-height: 1; color: #60a5fa; }
+        .metric-value { font-size: 1.75rem; font-weight: 800; line-height: 1; color: #67e8f9; }
         .result-row, .sentence-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
         .result-term { font-weight: 800; color: #f8fafc; }
-        .highlight-panel { padding: 1rem 1.2rem; border-radius: 20px; border: 1px solid rgba(148,163,184,0.12); background: rgba(15,23,42,0.94); line-height: 1.8; color: #e2e8f0; }
+        .highlight-panel { padding: 1rem 1.1rem; border-radius: 16px; border: 1px solid rgba(148,163,184,0.12); background: rgba(15,23,42,0.94); line-height: 1.78; color: #e2e8f0; }
         .highlight { padding: 0.1rem 0.3rem; border-radius: 0.35rem; font-weight: 700; }
         .strike { text-decoration: line-through; color: #b4233d; font-weight: 700; }
-        .insert { color: #1f7a39; font-weight: 700; background: rgba(47,158,68,0.12); padding: 0.1rem 0.25rem; border-radius: 0.3rem; }
-        .missing { color: #b4233d; font-weight: 700; }
-        .ok { color: #1f7a39; font-weight: 700; }
+        .insert { color: #10b981; font-weight: 700; background: rgba(16,185,129,0.12); padding: 0.1rem 0.25rem; border-radius: 0.3rem; }
+        .missing { color: #fb7185; font-weight: 700; }
+        .ok { color: #34d399; font-weight: 700; }
         .nav-caption { color: #94a3b8; font-size: 0.92rem; }
         .card-grid-title { color: #cbd5e1; font-weight: 700; margin-bottom: 0.55rem; }
+        [data-testid="stSidebar"] .stButton > button {
+            width: 100%;
+            justify-content: flex-start;
+            border-radius: 12px;
+            border: 1px solid rgba(148, 163, 184, 0.12);
+            background: rgba(15, 23, 42, 0.54);
+            color: #e2e8f0;
+            padding: 0.72rem 0.9rem;
+            font-weight: 700;
+            margin-bottom: 0.3rem;
+            box-shadow: none;
+        }
+        [data-testid="stSidebar"] .stButton > button:hover {
+            border-color: rgba(125, 211, 252, 0.28);
+            background: rgba(14, 165, 233, 0.14);
+            color: #ffffff;
+        }
+        .stTextArea textarea, .stTextInput input {
+            background: rgba(15, 23, 42, 0.82) !important;
+            color: #e2e8f0 !important;
+            border: 1px solid rgba(148, 163, 184, 0.16) !important;
+            border-radius: 14px !important;
+        }
+        .stTextArea textarea:focus, .stTextInput input:focus {
+            border-color: rgba(125, 211, 252, 0.4) !important;
+            box-shadow: 0 0 0 1px rgba(125, 211, 252, 0.22) !important;
+        }
+        .stFileUploader {
+            background: rgba(15, 23, 42, 0.54);
+            border-radius: 16px;
+            border: 1px dashed rgba(148, 163, 184, 0.2);
+            padding: 0.75rem 0.9rem;
+        }
+        .stDownloadButton button, .stButton button[kind="primary"] {
+            border-radius: 12px !important;
+        }
     </style>
     """,
     unsafe_allow_html=True,
@@ -724,12 +762,11 @@ st.markdown(
 st.markdown(
     """
     <div class="hero-card">
-        <div class="eyebrow">AI Legal Intelligence Demo</div>
-        <div class="hero-title">Analyze contracts with explainable legal-NLP features.</div>
+        <div class="eyebrow">Developed By Hujjathullah</div>
+        <div class="hero-title">Professional legal contract risk analysis, built for clear reviews and polished demos.</div>
         <div class="hero-copy">
-            This version adds clause dependencies, ambiguity detection, obligation extraction, summarization,
-            Q&A, semantic similarity, compliance checks, auto-redlining, role-based views, multi-contract analysis,
-            and sensitive-data masking.
+            Review contract text, upload files, generate risk reports, and present analysis outcomes through a cleaner,
+            more professional dashboard with explainable legal-NLP features.
         </div>
     </div>
     """,
@@ -738,21 +775,26 @@ st.markdown(
 
 with st.sidebar:
     st.markdown("### 🧭 Navigation Menu")
-    current_page = st.radio(
-        "Go to",
-        [
-            "📊 Dashboard",
-            "📝 Analyze Contract",
-            "📁 Upload File",
-            "📈 Risk Report",
-            "🕘 History",
-            "⚙️ Settings / About",
-        ],
-        label_visibility="collapsed",
-    )
-    st.markdown("<div class='nav-caption'>Dark presentation theme enabled</div>", unsafe_allow_html=True)
+    nav_items = [
+        "📊 Dashboard",
+        "📝 Analyze Contract",
+        "📁 Upload File",
+        "📈 Risk Report",
+        "🕘 History",
+        "⚙️ Settings / About",
+    ]
+    for item in nav_items:
+        label = item
+        if st.session_state.get("current_page") == item:
+            label = f"• {item}"
+        if st.button(label, key=f"nav_{item}", use_container_width=True):
+            st.session_state["current_page"] = item
+    st.markdown("<div class='nav-caption'>Professional dark workspace</div>", unsafe_allow_html=True)
     selected_role = st.selectbox("View Mode", list(ROLE_DESCRIPTIONS.keys()), help="Switch between lawyer, client, and manager perspectives.")
     st.caption(ROLE_DESCRIPTIONS[selected_role])
+
+
+current_page = st.session_state.get("current_page", "📊 Dashboard")
 
 
 latest_result = st.session_state.get("latest_result")
@@ -787,10 +829,10 @@ def render_dashboard():
         )
         chart = alt.Chart(distribution).mark_arc(innerRadius=55).encode(
             theta="Count:Q",
-            color=alt.Color("Risk Level:N", scale=alt.Scale(domain=["High Risk", "Medium Risk", "Low Risk"], range=["#d9485f", "#f08c2b", "#2f9e44"])),
+            color=alt.Color("Risk Level:N", scale=alt.Scale(domain=["High Risk", "Medium Risk", "Low Risk"], range=["#fb7185", "#fbbf24", "#34d399"])),
             tooltip=["Risk Level", "Count"],
         ).properties(height=320)
-        st.markdown("<div class='panel-card'><div class='section-title'>Risk Distribution</div></div>", unsafe_allow_html=True)
+        st.markdown("<div class='panel-card'><div class='section-title'>Portfolio Risk Distribution</div></div>", unsafe_allow_html=True)
         st.altair_chart(chart, use_container_width=True)
     with recent_col:
         st.markdown("<div class='panel-card'><div class='section-title'>Recent Analyses</div></div>", unsafe_allow_html=True)
@@ -805,7 +847,7 @@ def render_dashboard():
 
 
 def render_analyze_contract():
-    st.markdown("<div class='panel-card'><div class='section-title'>Analyze Contract</div><div class='body-copy'>Paste contract text, run analysis, and review highlighted risks with explanations.</div></div>", unsafe_allow_html=True)
+    st.markdown("<div class='panel-card'><div class='section-title'>Analyze Contract</div><div class='body-copy'>Paste contract language, run the analysis workflow, and review the highlighted risks, score, and explanation panel.</div></div>", unsafe_allow_html=True)
     contract_text = st.text_area(
         "Paste Contract Text",
         value=st.session_state.get("contract_text", ""),
@@ -813,7 +855,7 @@ def render_analyze_contract():
         placeholder="Paste the full contract text here...",
     )
     st.session_state["contract_text"] = contract_text
-    if st.button("Analyze Button", type="primary", use_container_width=True):
+    if st.button("Analyze Contract", type="primary", use_container_width=True):
         if not contract_text.strip():
             st.warning("Paste some contract text first.")
         else:
@@ -821,14 +863,14 @@ def render_analyze_contract():
                 result = run_full_analysis(contract_text, "Pasted Contract")
                 store_analysis(result)
                 latest = result["summary"]
-                st.success("Analysis complete.")
+                st.success("Analysis completed successfully.")
                 st.progress(min(latest["overall_score"], 100) / 100)
 
     result = st.session_state.get("latest_result")
     if result and result["text"]:
         summary = result["summary"]
         findings = result["findings"]
-        st.markdown("<div class='panel-card'><div class='section-title'>Results Section</div></div>", unsafe_allow_html=True)
+        st.markdown("<div class='panel-card'><div class='section-title'>Analysis Results</div></div>", unsafe_allow_html=True)
         left, right = st.columns([1.1, 0.9], gap="large")
         with left:
             st.markdown(f"<div class='highlight-panel'>{highlight_risk_terms(result['text'])}</div>", unsafe_allow_html=True)
@@ -837,7 +879,7 @@ def render_analyze_contract():
                 f"""
                 <div class="panel-card">
                     <div class="status-banner {summary['overall_class']}">
-                        <div class="status-label">Risk Score Meter</div>
+                        <div class="status-label">Overall Risk Score</div>
                         <div class="status-title">{summary['overall_score']}/100</div>
                         <p>{summary['overall_risk']}</p>
                     </div>
@@ -845,12 +887,12 @@ def render_analyze_contract():
                 """,
                 unsafe_allow_html=True,
             )
-            st.markdown(f"<div class='panel-card'><div class='section-title'>Risk Categories</div><div class='subtle-copy'>🔴 {summary['counts']['High Risk']} high · 🟠 {summary['counts']['Medium Risk']} medium · 🟢 {summary['counts']['Low Risk']} low</div></div>", unsafe_allow_html=True)
-            st.markdown(f"<div class='panel-card'><div class='section-title'>Explanation</div><div class='subtle-copy'>{html.escape(role_based_summary(selected_role, summary, findings))}</div></div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='panel-card'><div class='section-title'>Risk Categories</div><div class='subtle-copy'>🔴 {summary['counts']['High Risk']} high risk · 🟠 {summary['counts']['Medium Risk']} medium risk · 🟢 {summary['counts']['Low Risk']} low risk</div></div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='panel-card'><div class='section-title'>Executive Explanation</div><div class='subtle-copy'>{html.escape(role_based_summary(selected_role, summary, findings))}</div></div>", unsafe_allow_html=True)
 
 
 def render_upload_file():
-    st.markdown("<div class='panel-card'><div class='section-title'>Upload File</div><div class='body-copy'>Upload a PDF or DOCX file, preview the extracted text, and analyze it directly.</div></div>", unsafe_allow_html=True)
+    st.markdown("<div class='panel-card'><div class='section-title'>Upload File</div><div class='body-copy'>Upload a PDF, DOCX, or TXT contract, preview the extracted content, and send it into the same analysis workflow.</div></div>", unsafe_allow_html=True)
     uploaded_file = st.file_uploader("Upload PDF / DOCX / TXT", type=["pdf", "docx", "txt"], key="page_upload")
     if uploaded_file is not None:
         extracted_text = read_uploaded_file(uploaded_file)
@@ -858,18 +900,18 @@ def render_upload_file():
         st.session_state["uploaded_contract_name"] = uploaded_file.name
         st.markdown("<div class='card-grid-title'>Extracted Text Preview</div>", unsafe_allow_html=True)
         st.text_area("Preview", extracted_text, height=260, disabled=False)
-        if st.button("Analyze Uploaded File", use_container_width=True, type="primary"):
+        if st.button("Analyze Uploaded Contract", use_container_width=True, type="primary"):
             if extracted_text.strip():
                 with st.spinner("Analyzing contract..."):
                     result = run_full_analysis(extracted_text, uploaded_file.name)
                     store_analysis(result)
-                    st.success(f"Analysis saved for {uploaded_file.name}")
+                    st.success(f"Analysis saved for {uploaded_file.name}.")
             else:
                 st.warning("No readable text was extracted from the file.")
 
 
 def render_risk_report():
-    st.markdown("<div class='panel-card'><div class='section-title'>Risk Report</div><div class='body-copy'>Charts, top risky clauses, and downloadable analysis output.</div></div>", unsafe_allow_html=True)
+    st.markdown("<div class='panel-card'><div class='section-title'>Risk Report</div><div class='body-copy'>Review the latest reporting view with portfolio-style charts, clause summaries, and export-ready output.</div></div>", unsafe_allow_html=True)
     if not latest_result:
         st.info("Run an analysis first to generate a risk report.")
         return
@@ -886,7 +928,7 @@ def render_risk_report():
         )
         pie = alt.Chart(risk_df).mark_arc(innerRadius=55).encode(
             theta="Count:Q",
-            color=alt.Color("Risk Level:N", scale=alt.Scale(domain=["High Risk", "Medium Risk", "Low Risk"], range=["#d9485f", "#f08c2b", "#2f9e44"])),
+            color=alt.Color("Risk Level:N", scale=alt.Scale(domain=["High Risk", "Medium Risk", "Low Risk"], range=["#fb7185", "#fbbf24", "#34d399"])),
             tooltip=["Risk Level", "Count"],
         ).properties(height=280)
         st.altair_chart(pie, use_container_width=True)
@@ -895,7 +937,7 @@ def render_risk_report():
         bars = alt.Chart(keyword_df).mark_bar(cornerRadiusTopLeft=8, cornerRadiusTopRight=8).encode(
             x=alt.X("Keyword:N", sort="-y"),
             y="Hits:Q",
-            color=alt.value("#60a5fa"),
+            color=alt.value("#22d3ee"),
             tooltip=["Keyword", "Hits"],
         ).properties(height=280)
         st.altair_chart(bars, use_container_width=True)
@@ -908,7 +950,7 @@ def render_risk_report():
 
 
 def render_history():
-    st.markdown("<div class='panel-card'><div class='section-title'>History</div><div class='body-copy'>Past analyses from this app session.</div></div>", unsafe_allow_html=True)
+    st.markdown("<div class='panel-card'><div class='section-title'>History</div><div class='body-copy'>Review the analyses completed in the current application session.</div></div>", unsafe_allow_html=True)
     if not history:
         st.info("No analysis history yet.")
         return
@@ -923,11 +965,11 @@ def render_settings_about():
             """
             <div class='result-card'>
                 <div class='result-term'>Project Info</div>
-                <div class='subtle-copy'>Legal Contract Risk Analyzer with dark-theme sidebar UI, rule-based legal NLP, charts, history, file upload, and report generation.</div>
+                <div class='subtle-copy'>Legal Contract Risk Analyzer with a refined dark interface, sidebar navigation, explainable legal-NLP analysis, reporting, and presentation-ready dashboards.</div>
             </div>
             <div class='result-card'>
                 <div class='result-term'>Model Details</div>
-                <div class='subtle-copy'>Current system uses heuristic NLP, regex extraction, rule-based scoring, and Streamlit analytics visualizations.</div>
+                <div class='subtle-copy'>The current system uses heuristic NLP, regex extraction, rule-based scoring, and Streamlit analytics visualizations for fast demo-ready results.</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -936,15 +978,12 @@ def render_settings_about():
         st.markdown(
             """
             <div class='result-card'>
-                <div class='result-term'>Team Members</div>
-                <div class='subtle-copy'>Update these names before your college demo:</div>
-                <div class='subtle-copy'>1. Team Member 1</div>
-                <div class='subtle-copy'>2. Team Member 2</div>
-                <div class='subtle-copy'>3. Team Member 3</div>
+                <div class='result-term'>Developer</div>
+                <div class='subtle-copy'>Developed by Hujjathullah</div>
             </div>
             <div class='result-card'>
                 <div class='result-term'>Theme</div>
-                <div class='subtle-copy'>Dark theme is enabled for a modern presentation-friendly look.</div>
+                <div class='subtle-copy'>A dark teal interface is enabled for a clean, modern, presentation-friendly look.</div>
             </div>
             """,
             unsafe_allow_html=True,
