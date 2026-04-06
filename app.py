@@ -1,5 +1,6 @@
 import html
 import json
+from difflib import ndiff
 from pathlib import Path
 
 import altair as alt
@@ -9,6 +10,8 @@ from analyzer_core import (
     ROLE_DESCRIPTIONS,
     answer_question,
     answer_question_details,
+    build_docx_report,
+    build_pdf_report,
     build_contract_docx,
     compare_contracts,
     highlight_sentences_with_tooltips,
@@ -76,6 +79,58 @@ def save_analysis_archive(archive):
         pass
 
 
+def delete_analysis_at(index):
+    history = st.session_state.get("analysis_history", [])
+    archive = st.session_state.get("analysis_archive", [])
+    if 0 <= index < len(history):
+        history.pop(index)
+        save_history(history)
+    if 0 <= index < len(archive):
+        archive.pop(index)
+        save_analysis_archive(archive)
+
+
+def build_comparison_report(comparison):
+    lines = [
+        "Contract Comparison Report",
+        "",
+        f"Safer Contract: {comparison['safer_contract']}",
+        f"Reason: {comparison['safety_reason']}",
+        f"Similarity: {comparison['similarity']}%",
+        f"Base Contract: {comparison['base_risk']} ({comparison['base_score']}/100)",
+        f"Revised Contract: {comparison['compare_risk']} ({comparison['compare_score']}/100)",
+        "",
+        "Added Risks:",
+    ]
+    lines.extend(f"- {item}" for item in comparison["added_risks"] or ["No new risky terms"])
+    lines.extend(["", "Removed Risks:"])
+    lines.extend(f"- {item}" for item in comparison["removed_risks"] or ["No removed risky terms"])
+    lines.extend(["", "Clause Changes:"])
+    if comparison["clause_changes"]:
+        for item in comparison["clause_changes"]:
+            lines.append(f"- {item['clause']}: {item['change']} | Base: {item['base_risk']} | Revised: {item['revised_risk']}")
+            lines.append(f"  {item['summary']}")
+    else:
+        lines.append("- No major clause-level changes detected")
+    return "\n".join(lines)
+
+
+def render_text_diff(base_text, revised_text):
+    diff_lines = []
+    for line in ndiff(base_text.split(), revised_text.split()):
+        prefix = line[:2]
+        token = html.escape(line[2:])
+        if prefix == "- ":
+            diff_lines.append(f"<span class='diff-removed'>{token}</span>")
+        elif prefix == "+ ":
+            diff_lines.append(f"<span class='diff-added'>{token}</span>")
+        elif prefix == "? ":
+            continue
+        else:
+            diff_lines.append(f"<span>{token}</span>")
+    return " ".join(diff_lines)
+
+
 def archive_analysis(result):
     archive = st.session_state.setdefault("analysis_archive", [])
     archive.insert(
@@ -122,6 +177,7 @@ st.session_state.setdefault("contract_chat_history", [])
 st.session_state.setdefault("revised_contract_package", None)
 st.session_state.setdefault("analysis_archive", load_analysis_archive())
 st.session_state.setdefault("clause_filter", "")
+st.session_state.setdefault("presentation_mode", False)
 
 theme_mode = st.session_state.get("theme_mode", "Light")
 if theme_mode == "Light":
@@ -265,6 +321,27 @@ st.markdown(
             font-weight: 800;
             margin-bottom: 0.6rem;
         }}
+        .meta-grid {{
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.7rem;
+        }}
+        .meta-chip {{
+            padding: 0.75rem 0.85rem;
+            border-radius: 14px;
+            background: {theme["surface_alt"]};
+            border: 1px solid {theme["card_border"]};
+            color: {theme["text"]};
+        }}
+        .check-item {{
+            padding: 0.85rem 0.95rem;
+            border-radius: 14px;
+            border: 1px solid {theme["card_border"]};
+            background: {theme["surface_alt"]};
+            margin-bottom: 0.55rem;
+        }}
+        .diff-added {{ background: rgba(16,185,129,0.16); color: #047857; padding: 0.08rem 0.18rem; border-radius: 0.25rem; }}
+        .diff-removed {{ background: rgba(225,29,72,0.14); color: #be123c; padding: 0.08rem 0.18rem; border-radius: 0.25rem; text-decoration: line-through; }}
         .score-list div {{ color: {theme["muted"]}; margin-bottom: 0.25rem; }}
         .status-banner {{ border-radius: 18px; padding: 1.15rem 1.2rem; color: white; margin-bottom: 0.9rem; }}
         .status-banner.high {{ background: linear-gradient(135deg, #9f1239, #e11d48, #fb7185); }}
@@ -304,6 +381,12 @@ st.markdown(
         .stSelectbox div[role="combobox"],
         .stMultiSelect div[data-baseweb="select"] > div,
         .stFileUploader small,
+        [data-testid="stFileUploaderDropzoneInstructions"],
+        [data-testid="stFileUploaderDropzoneInstructions"] span,
+        [data-testid="stFileUploaderDropzone"] div,
+        [data-testid="stFileUploaderDropzone"] span,
+        [data-testid="stFileUploaderDropzone"] button,
+        [data-testid="stBaseButton-secondary"],
         .stCaption,
         .stAlert,
         .stAlert p,
@@ -335,6 +418,14 @@ st.markdown(
             border: 1px solid {theme["card_border"]};
             background: {theme["surface_alt"]};
         }}
+        .disclaimer-banner {{
+            padding: 0.95rem 1rem;
+            border-radius: 16px;
+            background: linear-gradient(90deg, rgba(239,68,68,0.12), rgba(245,158,11,0.12));
+            border: 1px solid rgba(245,158,11,0.24);
+            color: {theme["text"]};
+            margin-bottom: 0.9rem;
+        }}
     </style>
     """,
     unsafe_allow_html=True,
@@ -352,6 +443,8 @@ with st.sidebar:
     if new_theme != st.session_state.get("theme_mode"):
         st.session_state["theme_mode"] = new_theme
         st.rerun()
+    presentation_mode = st.toggle("Presentation Mode", value=st.session_state.get("presentation_mode", False))
+    st.session_state["presentation_mode"] = presentation_mode
     st.markdown(f"<div class='nav-caption'>{theme['primary_label']}</div>", unsafe_allow_html=True)
     selected_role = st.selectbox("View Mode", list(ROLE_DESCRIPTIONS.keys()), help="Switch between lawyer, client, and manager perspectives.")
     st.caption(ROLE_DESCRIPTIONS[selected_role])
@@ -424,12 +517,13 @@ def render_dashboard():
         st.markdown("<div class='panel-card'><div class='section-title'>Portfolio Risk Distribution</div></div>", unsafe_allow_html=True)
         st.altair_chart(chart, use_container_width=True)
     with recent_col:
-        st.markdown("<div class='panel-card'><div class='section-title'>Recent Analyses</div></div>", unsafe_allow_html=True)
-        if history:
-            for item in history[:5]:
-                st.markdown(f"<div class='result-card'><div class='result-term'>{html.escape(item['File Name'])}</div><div class='subtle-copy'>{item['Date']} · {item['Risk Level']} · Score {item['Risk Score']}</div></div>", unsafe_allow_html=True)
-        else:
-            st.markdown("<div class='empty-card'>No analyses yet. Use Analyze Contract to begin, then review outcomes here.</div>", unsafe_allow_html=True)
+        if not st.session_state.get("presentation_mode"):
+            st.markdown("<div class='panel-card'><div class='section-title'>Recent Analyses</div></div>", unsafe_allow_html=True)
+            if history:
+                for item in history[:5]:
+                    st.markdown(f"<div class='result-card'><div class='result-term'>{html.escape(item['File Name'])}</div><div class='subtle-copy'>{item['Date']} · {item['Risk Level']} · Score {item['Risk Score']}</div></div>", unsafe_allow_html=True)
+            else:
+                st.markdown("<div class='empty-card'>No analyses yet. Use Analyze Contract to begin, then review outcomes here.</div>", unsafe_allow_html=True)
 
 
 def render_clause_cards(summary):
@@ -488,27 +582,61 @@ def render_score_breakdown(summary):
     )
 
 
+def render_review_checklist(summary):
+    checklist = [
+        ("Payment", "Payment Clause"),
+        ("Liability", "Liability Clause"),
+        ("Termination", "Termination Clause"),
+        ("Dispute Resolution", "Dispute Resolution Clause"),
+        ("Confidentiality", "Confidentiality Clause"),
+        ("Privacy", "Data Privacy Clause"),
+    ]
+    clause_map = {item["clause"]: item for item in summary["clause_cards"]}
+    st.markdown("<div class='panel-card'><div class='section-title'>Review Checklist</div></div>", unsafe_allow_html=True)
+    for label, clause_name in checklist:
+        item = clause_map.get(clause_name, {"risk_level": "Needs Review", "recommendation": f"Consider adding a clear {clause_name.lower()}."})
+        badge_class = "neutral" if item["risk_level"] == "Needs Review" else item["risk_level"].lower().split()[0]
+        st.markdown(
+            f"<div class='check-item'><div class='badge {badge_class}'>{html.escape(item['risk_level'])}</div><div class='result-term'>{html.escape(label)}</div><div class='subtle-copy'>{html.escape(item['recommendation'])}</div></div>",
+            unsafe_allow_html=True,
+        )
+
+
+def render_top_actions(summary):
+    actions = summary["recommendations"][:3]
+    if not actions:
+        return
+    st.markdown("<div class='panel-card'><div class='section-title'>Top 3 Fix Actions</div></div>", unsafe_allow_html=True)
+    for item in actions:
+        st.markdown(
+            f"<div class='result-card'><div class='result-term'>{html.escape(item['title'])}</div><div class='subtle-copy'>{html.escape(item['suggestion'])}</div></div>",
+            unsafe_allow_html=True,
+        )
+
+
 def render_analyze_contract():
     st.markdown("<div class='panel-card'><div class='section-title'>Analyze Contract</div></div>", unsafe_allow_html=True)
-    st.caption("Rule-based legal screening. Results are explainable and demo-friendly, but not a substitute for legal review.")
-    sample_cols = st.columns(3)
-    for col, (label, sample_text) in zip(sample_cols, SAMPLE_CONTRACTS.items()):
-        with col:
-            if st.button(label, use_container_width=True, key=f"sample_{label}"):
-                st.session_state["contract_text"] = sample_text
-                st.session_state["uploaded_contract_name"] = label
-                st.rerun()
-    uploaded_file = st.file_uploader("Upload Contract File", type=["pdf", "docx", "txt"], key="inline_upload")
-    if uploaded_file is not None:
-        extracted_text = read_uploaded_file(uploaded_file)
-        st.session_state["uploaded_contract_text"] = extracted_text
-        st.session_state["uploaded_contract_name"] = uploaded_file.name
-        if extracted_text.strip():
-            st.session_state["contract_text"] = extracted_text
-            st.markdown("<div class='card-grid-title'>Extracted Text Preview</div>", unsafe_allow_html=True)
-            st.text_area("Preview", extracted_text, height=180, key="inline_preview")
-        else:
-            st.warning("No readable text was extracted from the file.")
+    st.markdown("<div class='disclaimer-banner'><strong>Rule-based academic/legal screening, not legal advice.</strong> Use this as a review aid and not as a substitute for a qualified legal professional.</div>", unsafe_allow_html=True)
+    uploaded_file = None
+    if not st.session_state.get("presentation_mode"):
+        sample_cols = st.columns(3)
+        for col, (label, sample_text) in zip(sample_cols, SAMPLE_CONTRACTS.items()):
+            with col:
+                if st.button(label, use_container_width=True, key=f"sample_{label}"):
+                    st.session_state["contract_text"] = sample_text
+                    st.session_state["uploaded_contract_name"] = label
+                    st.rerun()
+        uploaded_file = st.file_uploader("Upload Contract File", type=["pdf", "docx", "txt"], key="inline_upload")
+        if uploaded_file is not None:
+            extracted_text = read_uploaded_file(uploaded_file)
+            st.session_state["uploaded_contract_text"] = extracted_text
+            st.session_state["uploaded_contract_name"] = uploaded_file.name
+            if extracted_text.strip():
+                st.session_state["contract_text"] = extracted_text
+                st.markdown("<div class='card-grid-title'>Extracted Text Preview</div>", unsafe_allow_html=True)
+                st.text_area("Preview", extracted_text, height=180, key="inline_preview")
+            else:
+                st.warning("No readable text was extracted from the file.")
     contract_text = st.text_area("Paste Contract Text", value=st.session_state.get("contract_text", ""), height=300, placeholder="Paste the full contract text here...")
     st.session_state["contract_text"] = contract_text
     if st.button("Analyze Contract", type="primary", use_container_width=True):
@@ -543,6 +671,20 @@ def render_analyze_contract():
             st.markdown(f"<div class='panel-card'><div class='section-title'>Risk Categories</div><div class='subtle-copy'>🔴 {summary['counts']['High Risk']} high risk · 🟠 {summary['counts']['Medium Risk']} medium risk · 🟢 {summary['counts']['Low Risk']} low risk</div></div>", unsafe_allow_html=True)
             st.markdown(f"<div class='panel-card'><div class='section-title'>Executive Explanation</div><div class='subtle-copy'>{html.escape(role_based_summary(selected_role, summary, findings))}</div></div>", unsafe_allow_html=True)
             render_score_breakdown(summary)
+            st.markdown(
+                f"""
+                <div class='panel-card'>
+                    <div class='section-title'>Analysis Metadata</div>
+                    <div class='meta-grid'>
+                        <div class='meta-chip'><strong>Source</strong><br>{html.escape(result['source_name'])}</div>
+                        <div class='meta-chip'><strong>Last Analyzed</strong><br>{html.escape(result['created_at'])}</div>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+            render_top_actions(summary)
+            render_review_checklist(summary)
             st.markdown(f"<div class='panel-card'><div class='section-title'>Analysis Note</div><div class='subtle-copy'>{html.escape(summary['analysis_note'])}</div></div>", unsafe_allow_html=True)
             st.markdown("<div class='panel-card'><div class='section-title'>Download Report</div></div>", unsafe_allow_html=True)
             st.download_button(
@@ -561,57 +703,67 @@ def render_analyze_contract():
                 use_container_width=True,
                 key="analyze_download_docx",
             )
-        with st.expander("Clause-by-Clause Review", expanded=True):
-            render_clause_cards(summary)
-        with st.expander("Risky Sentences and Reasons"):
-            if result["sentence_findings"]:
-                for item in result["sentence_findings"]:
-                    st.markdown(
-                        f"<div class='result-card'><div class='badge {item['level'].lower().split()[0]}'>{html.escape(item['level'])}</div><div class='subtle-copy'>{html.escape(item['sentence'])}</div><div class='subtle-copy'>{html.escape(item['reason'])}</div></div>",
-                        unsafe_allow_html=True,
-                    )
-            else:
-                st.info("No risky sentences were identified by the current rule set.")
-        with st.expander("AI Contract Chatbot", expanded=True):
-            st.caption("Ask questions about the currently analyzed contract. Answers are grounded in the analyzed text and rule-based signals.")
-            sample_q_cols = st.columns(len(SAMPLE_QUESTIONS))
-            for col, sample_question in zip(sample_q_cols, SAMPLE_QUESTIONS):
-                with col:
-                    if st.button(sample_question, key=f"sample_q_{sample_question}", use_container_width=True):
-                        st.session_state["contract_question"] = sample_question
-                        st.rerun()
-            question = st.text_input(
-                "Ask about the contract",
-                placeholder="Example: Who is liable? What is the payment term? Is termination risky?",
-                key="contract_question",
-            )
-            if st.button("Ask Contract Chatbot", use_container_width=True, key="ask_contract_chatbot"):
-                if not question.strip():
-                    st.warning("Enter a contract question first.")
+        overview_tab, clauses_tab, chatbot_tab, revision_tab = st.tabs(["Overview", "Clauses", "Chatbot", "Revision"])
+        with overview_tab:
+            st.markdown(f"<div class='highlight-panel'>{highlight_sentences_with_tooltips(result['text'], result['sentence_findings'])}</div>", unsafe_allow_html=True)
+            with st.expander("Risky Sentences and Reasons", expanded=True):
+                if result["sentence_findings"]:
+                    for item in result["sentence_findings"]:
+                        st.markdown(
+                            f"<div class='result-card'><div class='badge {item['level'].lower().split()[0]}'>{html.escape(item['level'])}</div><div class='subtle-copy'>{html.escape(item['sentence'])}</div><div class='subtle-copy'>{html.escape(item['reason'])}</div></div>",
+                            unsafe_allow_html=True,
+                        )
                 else:
-                    response = answer_question_details(
-                        question,
-                        result["text"],
-                        summary["entities"],
-                        summary["obligations"],
-                        findings,
-                    )
-                    st.session_state["contract_chat_history"].insert(
-                        0,
-                        {
-                            "question": question.strip(),
-                            "answer": response["answer"],
-                            "source_sentence": response["source_sentence"],
-                            "confidence": response["confidence"],
-                        },
-                    )
-            if st.session_state["contract_chat_history"]:
-                for item in st.session_state["contract_chat_history"][:4]:
-                    st.markdown(
-                        f"<div class='result-card'><div class='badge neutral'>{html.escape(item['confidence'])}</div><div class='result-term'>Q: {html.escape(item['question'])}</div><div class='subtle-copy'>A: {html.escape(item['answer'])}</div><div class='subtle-copy'>Source: {html.escape(item['source_sentence'] or 'Derived from the analyzed contract context.')}</div></div>",
-                        unsafe_allow_html=True,
-                    )
-        with st.expander("Reduce Risk With Safer Redraft", expanded=True):
+                    st.info("No risky sentences were identified by the current rule set.")
+        with clauses_tab:
+            render_clause_cards(summary)
+        with chatbot_tab:
+            if st.session_state.get("presentation_mode"):
+                st.info("Chatbot is hidden in presentation mode to keep the page focused on key findings.")
+            else:
+                st.caption("Ask questions about the currently analyzed contract. Answers are grounded in the analyzed text and rule-based signals.")
+                sample_q_cols = st.columns(len(SAMPLE_QUESTIONS))
+                for col, sample_question in zip(sample_q_cols, SAMPLE_QUESTIONS):
+                    with col:
+                        if st.button(sample_question, key=f"sample_q_{sample_question}", use_container_width=True):
+                            st.session_state["contract_question"] = sample_question
+                            st.rerun()
+                question = st.text_input(
+                    "Ask about the contract",
+                    placeholder="Example: Who is liable? What is the payment term? Is termination risky?",
+                    key="contract_question",
+                )
+                if st.button("Ask Contract Chatbot", use_container_width=True, key="ask_contract_chatbot"):
+                    if not question.strip():
+                        st.warning("Enter a contract question first.")
+                    else:
+                        response = answer_question_details(
+                            question,
+                            result["text"],
+                            summary["entities"],
+                            summary["obligations"],
+                            findings,
+                        )
+                        st.session_state["contract_chat_history"].insert(
+                            0,
+                            {
+                                "question": question.strip(),
+                                "answer": response["answer"],
+                                "source_sentence": response["source_sentence"],
+                                "confidence": response["confidence"],
+                                "confidence_reason": "Confidence is higher when the answer directly matches a sentence or extracted obligation in the contract.",
+                            },
+                        )
+                if st.session_state["contract_chat_history"]:
+                    for item in st.session_state["contract_chat_history"][:4]:
+                        st.markdown(
+                            f"<div class='result-card'><div class='badge neutral'>{html.escape(item['confidence'])}</div><div class='result-term'>Q: {html.escape(item['question'])}</div><div class='subtle-copy'>A: {html.escape(item['answer'])}</div><div class='subtle-copy'>Source: {html.escape(item['source_sentence'] or 'Derived from the analyzed contract context.')}</div><div class='subtle-copy'>Why this confidence: {html.escape(item['confidence_reason'])}</div></div>",
+                            unsafe_allow_html=True,
+                        )
+        with revision_tab:
+            if st.session_state.get("presentation_mode"):
+                st.info("Revision tools are hidden in presentation mode to keep the focus on the main findings.")
+                return
             st.caption("Generate a lower-risk revised draft based on the current rule-based findings.")
             if st.button("Revise Contract to Lower Risk", use_container_width=True, key="revise_contract_button"):
                 st.session_state["revised_contract_package"] = revise_contract_to_lower_risk(result["text"], summary, findings)
@@ -681,6 +833,7 @@ def render_compare_contracts():
             st.warning("Add both contracts before comparing them.")
             return
         comparison = compare_contracts(base_text, revised_text)
+        comparison_report = build_comparison_report(comparison)
         st.markdown(
             f"""
             <div class='panel-card'>
@@ -711,6 +864,25 @@ def render_compare_contracts():
             st.markdown("<div class='panel-card'><div class='section-title'>Removed Risks</div></div>", unsafe_allow_html=True)
             for item in comparison["removed_risks"] or ["No removed risky terms"]:
                 st.markdown(f"<div class='result-card'>{html.escape(item)}</div>", unsafe_allow_html=True)
+        export_col1, export_col2 = st.columns(2)
+        with export_col1:
+            st.download_button(
+                "Download Comparison Report (PDF)",
+                build_pdf_report(comparison_report),
+                file_name="contract_comparison_report.pdf",
+                mime="application/pdf",
+                use_container_width=True,
+                key="download_comparison_pdf",
+            )
+        with export_col2:
+            st.download_button(
+                "Download Comparison Report (DOCX)",
+                build_docx_report(comparison_report),
+                file_name="contract_comparison_report.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                use_container_width=True,
+                key="download_comparison_docx",
+            )
         with st.expander("Clause-Focused Changes", expanded=True):
             if comparison["clause_changes"]:
                 for item in comparison["clause_changes"]:
@@ -729,6 +901,12 @@ def render_compare_contracts():
                             st.markdown("<div class='card-grid-title'>Revised Clause Text</div>", unsafe_allow_html=True)
                             for sentence in item["revised_clause_text"] or ["No matching revised clause sentence"]:
                                 st.markdown(f"<div class='result-card'><div class='subtle-copy'>{html.escape(sentence)}</div></div>", unsafe_allow_html=True)
+                        if item["base_clause_text"] and item["revised_clause_text"]:
+                            st.markdown("<div class='card-grid-title'>Changed Wording</div>", unsafe_allow_html=True)
+                            st.markdown(
+                                f"<div class='highlight-panel'>{render_text_diff(' '.join(item['base_clause_text']), ' '.join(item['revised_clause_text']))}</div>",
+                                unsafe_allow_html=True,
+                            )
             else:
                 st.info("No major clause-level changes were detected between the two contracts.")
 
@@ -788,6 +966,11 @@ def render_history():
         st.session_state["latest_result"] = restored
         st.session_state["contract_text"] = item["text"]
         st.session_state["current_page"] = "📝 Analyze Contract"
+        st.rerun()
+    if st.button("Delete Selected Analysis", use_container_width=True):
+        delete_analysis_at(selected_item)
+        if st.session_state.get("latest_result") and selected_item == 0:
+            st.session_state["latest_result"] = None
         st.rerun()
 
 
