@@ -160,6 +160,53 @@ def detect_clause_types(text):
     return detected
 
 
+def build_clause_cards(clauses, findings, text):
+    cards = []
+    clause_lookup = {clause["clause"]: clause for clause in clauses}
+    lower_text = text.lower()
+    for clause_name in CLAUSE_LIBRARY:
+        clause = clause_lookup.get(clause_name)
+        clause_matches = clause["matches"] if clause else []
+        relevant_findings = []
+        for finding in findings:
+            if finding["term"] in lower_text and (
+                any(pattern in finding["term"] or finding["term"] in pattern for pattern in CLAUSE_LIBRARY[clause_name])
+                or clause_name in {"Liability Clause", "Termination Clause", "Payment Clause"}
+                and clause_matches
+            ):
+                relevant_findings.append(finding)
+        if relevant_findings:
+            primary = sorted(relevant_findings, key=lambda item: level_priority(item["level"]))[0]
+            risk_level = primary["level"]
+            explanation = primary["explanation"]
+            recommendation = RISK_RECOMMENDATIONS.get(
+                primary["term"],
+                f"Review the {clause_name.lower()} and tighten the wording around {', '.join(clause_matches[:2]) or 'detected obligations'}.",
+            )
+            score = min(sum(item["weight"] for item in relevant_findings), 100)
+        elif clause:
+            risk_level = "Low Risk"
+            explanation = clause["explanation"]
+            recommendation = f"Keep the {clause_name.lower()} precise and aligned with negotiated obligations."
+            score = 12
+        else:
+            risk_level = "Needs Review"
+            explanation = f"{clause_name} was not clearly detected in this contract."
+            recommendation = f"Consider adding a clear {clause_name.lower()} to improve legal coverage."
+            score = 0
+        cards.append(
+            {
+                "clause": clause_name,
+                "risk_level": risk_level,
+                "score": score,
+                "matches": clause_matches,
+                "explanation": explanation,
+                "recommendation": recommendation,
+            }
+        )
+    return cards
+
+
 def extract_entities(text):
     parties = set()
     dates = set()
@@ -446,6 +493,40 @@ def compare_contracts(base_text, compare_text):
         else:
             safer_contract = "Both are equally safe"
             safety_reason = "Both contracts have the same score and similar risk signal counts."
+    clause_changes = []
+    base_cards = {item["clause"]: item for item in base_summary["clause_cards"]}
+    compare_cards = {item["clause"]: item for item in compare_summary["clause_cards"]}
+    risk_rank = {"High Risk": 3, "Medium Risk": 2, "Low Risk": 1, "No Immediate Risk": 0, "Needs Review": 0}
+    for clause_name in CLAUSE_LIBRARY:
+        base_card = base_cards.get(clause_name, {"risk_level": "Needs Review", "score": 0})
+        compare_card = compare_cards.get(clause_name, {"risk_level": "Needs Review", "score": 0})
+        delta = compare_card["score"] - base_card["score"]
+        if delta < 0:
+            change = "Improved"
+            summary = f"{clause_name} looks safer in the revised contract."
+        elif delta > 0:
+            change = "Worsened"
+            summary = f"{clause_name} appears riskier in the revised contract."
+        else:
+            base_rank = risk_rank.get(base_card["risk_level"], 0)
+            compare_rank = risk_rank.get(compare_card["risk_level"], 0)
+            if compare_rank < base_rank:
+                change = "Improved"
+                summary = f"{clause_name} risk level improved in the revised contract."
+            elif compare_rank > base_rank:
+                change = "Worsened"
+                summary = f"{clause_name} risk level worsened in the revised contract."
+            else:
+                continue
+        clause_changes.append(
+            {
+                "clause": clause_name,
+                "change": change,
+                "summary": summary,
+                "base_risk": base_card["risk_level"],
+                "revised_risk": compare_card["risk_level"],
+            }
+        )
     return {
         "similarity": round(SequenceMatcher(None, normalize_text(base_text).lower(), normalize_text(compare_text).lower()).ratio() * 100, 2),
         "base_score": base_summary["overall_score"],
@@ -456,6 +537,7 @@ def compare_contracts(base_text, compare_text):
         "safety_reason": safety_reason,
         "added_risks": sorted(compare_terms - base_terms),
         "removed_risks": sorted(base_terms - compare_terms),
+        "clause_changes": clause_changes,
     }
 
 
@@ -470,6 +552,7 @@ def build_summary(findings, text, sentence_findings):
     obligations = extract_obligations(text)
     dependencies = detect_clause_dependencies(text)
     clauses = detect_clause_types(text)
+    clause_cards = build_clause_cards(clauses, findings, text)
     missing_clauses = [item for item in MISSING_CLAUSE_TARGETS if item not in {clause["clause"] for clause in clauses}]
     entity_map = extract_entities(text)
     sensitive_data = detect_sensitive_data(text)
@@ -485,12 +568,14 @@ def build_summary(findings, text, sentence_findings):
         ]
     )
 
-    raw_score = weights["High Risk"] + weights["Medium Risk"] + weights["Low Risk"]
-    raw_score += min(len(ambiguity_findings) * 4, 12)
-    raw_score += min(len(compliance_issues) * 8, 16)
-    raw_score += min(len(dependencies) * 6, 12)
+    keyword_score = weights["High Risk"] + weights["Medium Risk"] + weights["Low Risk"]
+    ambiguity_score = min(len(ambiguity_findings) * 4, 12)
+    compliance_score = min(len(compliance_issues) * 8, 16)
+    dependency_score = min(len(dependencies) * 6, 12)
+    sentence_score = min(len(sentence_findings) * 4, 12)
+    raw_score = keyword_score + ambiguity_score + compliance_score + dependency_score
     if has_material_risk_signal:
-        overall_score = min(raw_score + min(len(sentence_findings) * 4, 12), 100)
+        overall_score = min(raw_score + sentence_score, 100)
     else:
         overall_score = 0
 
@@ -519,6 +604,7 @@ def build_summary(findings, text, sentence_findings):
         "total_sentences": len(split_sentences(text)),
         "risky_sentences": len(sentence_findings),
         "clauses": clauses,
+        "clause_cards": clause_cards,
         "missing_clauses": missing_clauses,
         "entities": entity_map,
         "top_terms": top_terms,
@@ -530,6 +616,14 @@ def build_summary(findings, text, sentence_findings):
         "compliance_issues": compliance_issues,
         "recommendations": recommendations,
         "summary_points": summarize_contract(text, findings),
+        "score_breakdown": {
+            "keywords": keyword_score,
+            "ambiguity": ambiguity_score,
+            "compliance": compliance_score,
+            "dependency": dependency_score,
+            "sentence_context": sentence_score,
+        },
+        "analysis_note": "This is a rule-based legal screening result built from keywords, ambiguity checks, clause patterns, and simple dependency logic.",
     }
 
 
@@ -545,8 +639,8 @@ def explain_contract(summary, findings):
     return f"This contract is marked as {summary['overall_risk']} with a score of {summary['overall_score']}/100. {joined}"
 
 
-def highlight_risk_terms(text):
-    highlighted = html.escape(text)
+def _apply_term_highlights(rendered_text):
+    highlighted = rendered_text
     replacements = []
     for level, config in RISK_LIBRARY.items():
         for term in sorted(config["keywords"], key=len, reverse=True):
@@ -563,7 +657,27 @@ def highlight_risk_terms(text):
             lambda match: f"<span class='highlight ambiguous' title='Ambiguous'>{html.escape(match.group(0))}</span>",
             highlighted,
         )
+    return highlighted
+
+
+def highlight_risk_terms(text):
+    highlighted = _apply_term_highlights(html.escape(text))
     return highlighted.replace("\n", "<br>")
+
+
+def highlight_sentences_with_tooltips(text, sentence_findings):
+    rendered = html.escape(text)
+    ordered_findings = sorted(sentence_findings, key=lambda item: len(item["sentence"]), reverse=True)
+    for item in ordered_findings:
+        reason = html.escape(item["reason"] or f"{item['level']} signal detected")
+        sentence_html = html.escape(item["sentence"])
+        rendered = rendered.replace(
+            sentence_html,
+            f"<span class='sentence-highlight {level_class(item['level'])}' title='{reason}'>{sentence_html}</span>",
+            1,
+        )
+    rendered = _apply_term_highlights(rendered)
+    return rendered.replace("\n", "<br>")
 
 
 def build_redline_view(text):
@@ -654,12 +768,31 @@ def build_pdf_report(report_text):
     return buffer.getvalue()
 
 
+def build_docx_report(report_text):
+    document = Document()
+    lines = report_text.split("\n")
+    if lines:
+        document.add_heading(lines[0], level=0)
+    for line in lines[1:]:
+        if line.startswith("- "):
+            document.add_paragraph(line[2:], style="List Bullet")
+        elif line.strip():
+            document.add_paragraph(line)
+        else:
+            document.add_paragraph("")
+    buffer = io.BytesIO()
+    document.save(buffer)
+    buffer.seek(0)
+    return buffer.getvalue()
+
+
 def run_full_analysis(text, source_name="Pasted Contract"):
     findings = analyze_text(text) if text else []
     sentence_findings = analyze_sentences(text) if text else []
     summary = build_summary(findings, text, sentence_findings)
     report_text = build_report_text(text, findings, sentence_findings, summary)
     pdf_report = build_pdf_report(report_text) if text else b""
+    docx_report = build_docx_report(report_text) if text else b""
     return {
         "source_name": source_name,
         "text": text,
@@ -668,5 +801,6 @@ def run_full_analysis(text, source_name="Pasted Contract"):
         "summary": summary,
         "report_text": report_text,
         "pdf_report": pdf_report,
+        "docx_report": docx_report,
         "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
     }

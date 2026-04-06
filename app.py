@@ -1,4 +1,6 @@
 import html
+import json
+from pathlib import Path
 
 import altair as alt
 import pandas as pd
@@ -6,13 +8,46 @@ import streamlit as st
 from analyzer_core import (
     ROLE_DESCRIPTIONS,
     compare_contracts,
-    highlight_risk_terms,
+    highlight_sentences_with_tooltips,
     read_uploaded_file,
     role_based_summary,
     run_full_analysis,
 )
 
 st.set_page_config(page_title="Legal Contract Risk Analyzer", page_icon="⚖️", layout="wide")
+HISTORY_PATH = Path("analysis_history.json")
+SAMPLE_CONTRACTS = {
+    "Balanced Service Agreement": (
+        "This agreement is made between Client and Vendor. The Vendor shall deliver monthly support reports. "
+        "The Client shall pay INR 5000 within 15 days of invoice. Either party may terminate this agreement with 30 days notice. "
+        "Confidential information must be protected and disputes shall be resolved by arbitration."
+    ),
+    "Risky Liability Clause": (
+        "The Vendor shall be liable for all damages and unlimited liability shall apply. "
+        "Either party may terminate immediately upon breach or payment failure. "
+        "The Client shall indemnify the Company for any claim and penalty."
+    ),
+    "Ambiguous Draft": (
+        "The Supplier should provide updates as soon as possible and use best efforts to maintain service levels. "
+        "Reasonable changes may be made from time to time. Payment may be adjusted if needed."
+    ),
+}
+
+
+def load_history():
+    if not HISTORY_PATH.exists():
+        return []
+    try:
+        return json.loads(HISTORY_PATH.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return []
+
+
+def save_history(history):
+    try:
+        HISTORY_PATH.write_text(json.dumps(history, indent=2), encoding="utf-8")
+    except OSError:
+        pass
 
 
 def store_analysis(result):
@@ -27,10 +62,11 @@ def store_analysis(result):
     }
     history = st.session_state.setdefault("analysis_history", [])
     history.insert(0, record)
+    save_history(history)
     st.session_state["latest_result"] = result
 
 
-st.session_state.setdefault("analysis_history", [])
+st.session_state.setdefault("analysis_history", load_history())
 st.session_state.setdefault("latest_result", None)
 st.session_state.setdefault("contract_text", "")
 st.session_state.setdefault("uploaded_contract_text", "")
@@ -169,6 +205,7 @@ st.markdown(
         .metric-value {{ font-size: 1.75rem; font-weight: 800; line-height: 1; color: {theme["metric"]}; }}
         .result-term {{ font-weight: 800; color: {theme["result"]}; }}
         .highlight-panel {{ padding: 1rem 1.1rem; border-radius: 16px; border: 1px solid {theme["highlight_border"]}; background: {theme["highlight_bg"]}; line-height: 1.78; color: {theme["highlight_text"]}; }}
+        .sentence-highlight {{ padding: 0.08rem 0.18rem; border-radius: 0.35rem; border-bottom: 2px dotted currentColor; }}
         .brand-card {{
             padding: 1rem 1rem 0.9rem;
             border-radius: 18px;
@@ -195,6 +232,16 @@ st.markdown(
         .high {{ color: #e11d48; background: rgba(225,29,72,0.12); }}
         .medium {{ color: #d97706; background: rgba(217,119,6,0.14); }}
         .low {{ color: #059669; background: rgba(5,150,105,0.14); }}
+        .neutral {{ color: #0f766e; background: rgba(15,118,110,0.12); }}
+        .badge {{
+            display: inline-block;
+            padding: 0.3rem 0.62rem;
+            border-radius: 999px;
+            font-size: 0.76rem;
+            font-weight: 800;
+            margin-bottom: 0.6rem;
+        }}
+        .score-list div {{ color: {theme["muted"]}; margin-bottom: 0.25rem; }}
         .status-banner {{ border-radius: 18px; padding: 1.15rem 1.2rem; color: white; margin-bottom: 0.9rem; }}
         .status-banner.high {{ background: linear-gradient(135deg, #9f1239, #e11d48, #fb7185); }}
         .status-banner.medium {{ background: linear-gradient(135deg, #a16207, #f59e0b, #fbbf24); }}
@@ -350,8 +397,56 @@ def render_dashboard():
             st.markdown("<div class='empty-card'>No analyses yet. Use Analyze Contract to begin, then review outcomes here.</div>", unsafe_allow_html=True)
 
 
+def render_clause_cards(summary):
+    st.markdown("<div class='panel-card'><div class='section-title'>Clause Review</div></div>", unsafe_allow_html=True)
+    cols = st.columns(2, gap="large")
+    for index, item in enumerate(summary["clause_cards"]):
+        badge_class = "neutral" if item["risk_level"] == "Needs Review" else item["risk_level"].lower().split()[0]
+        matches = ", ".join(item["matches"][:3]) if item["matches"] else "No direct clause terms found"
+        with cols[index % 2]:
+            st.markdown(
+                f"""
+                <div class='result-card'>
+                    <div class='badge {badge_class}'>{html.escape(item['risk_level'])}</div>
+                    <div class='result-term'>{html.escape(item['clause'])}</div>
+                    <div class='subtle-copy'>Score {item['score']} · Matches: {html.escape(matches)}</div>
+                    <div class='subtle-copy'>{html.escape(item['explanation'])}</div>
+                    <div class='subtle-copy'><strong>Recommendation:</strong> {html.escape(item['recommendation'])}</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+
+def render_score_breakdown(summary):
+    breakdown = summary["score_breakdown"]
+    st.markdown(
+        f"""
+        <div class='panel-card'>
+            <div class='section-title'>Score Breakdown</div>
+            <div class='score-list'>
+                <div>Keywords: {breakdown['keywords']}</div>
+                <div>Ambiguity: {breakdown['ambiguity']}</div>
+                <div>Compliance: {breakdown['compliance']}</div>
+                <div>Dependency: {breakdown['dependency']}</div>
+                <div>Sentence Context: {breakdown['sentence_context']}</div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def render_analyze_contract():
     st.markdown("<div class='panel-card'><div class='section-title'>Analyze Contract</div></div>", unsafe_allow_html=True)
+    st.caption("Rule-based legal screening. Results are explainable and demo-friendly, but not a substitute for legal review.")
+    sample_cols = st.columns(3)
+    for col, (label, sample_text) in zip(sample_cols, SAMPLE_CONTRACTS.items()):
+        with col:
+            if st.button(label, use_container_width=True, key=f"sample_{label}"):
+                st.session_state["contract_text"] = sample_text
+                st.session_state["uploaded_contract_name"] = label
+                st.rerun()
     uploaded_file = st.file_uploader("Upload Contract File", type=["pdf", "docx", "txt"], key="inline_upload")
     if uploaded_file is not None:
         extracted_text = read_uploaded_file(uploaded_file)
@@ -382,11 +477,24 @@ def render_analyze_contract():
         st.markdown("<div class='panel-card'><div class='section-title'>Analysis Results</div></div>", unsafe_allow_html=True)
         left, right = st.columns([1.1, 0.9], gap="large")
         with left:
-            st.markdown(f"<div class='highlight-panel'>{highlight_risk_terms(result['text'])}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='highlight-panel'>{highlight_sentences_with_tooltips(result['text'], result['sentence_findings'])}</div>", unsafe_allow_html=True)
         with right:
             st.markdown(f"<div class='panel-card'><div class='status-banner {summary['overall_class']}'><div class='status-label'>Overall Risk Score</div><div class='status-title'>{summary['overall_score']}/100</div><p>{summary['overall_risk']}</p></div></div>", unsafe_allow_html=True)
             st.markdown(f"<div class='panel-card'><div class='section-title'>Risk Categories</div><div class='subtle-copy'>🔴 {summary['counts']['High Risk']} high risk · 🟠 {summary['counts']['Medium Risk']} medium risk · 🟢 {summary['counts']['Low Risk']} low risk</div></div>", unsafe_allow_html=True)
             st.markdown(f"<div class='panel-card'><div class='section-title'>Executive Explanation</div><div class='subtle-copy'>{html.escape(role_based_summary(selected_role, summary, findings))}</div></div>", unsafe_allow_html=True)
+            render_score_breakdown(summary)
+            st.markdown(f"<div class='panel-card'><div class='section-title'>Analysis Note</div><div class='subtle-copy'>{html.escape(summary['analysis_note'])}</div></div>", unsafe_allow_html=True)
+        with st.expander("Clause-by-Clause Review", expanded=True):
+            render_clause_cards(summary)
+        with st.expander("Risky Sentences and Reasons"):
+            if result["sentence_findings"]:
+                for item in result["sentence_findings"]:
+                    st.markdown(
+                        f"<div class='result-card'><div class='badge {item['level'].lower().split()[0]}'>{html.escape(item['level'])}</div><div class='subtle-copy'>{html.escape(item['sentence'])}</div><div class='subtle-copy'>{html.escape(item['reason'])}</div></div>",
+                        unsafe_allow_html=True,
+                    )
+            else:
+                st.info("No risky sentences were identified by the current rule set.")
 
 
 def render_compare_contracts():
@@ -442,6 +550,16 @@ def render_compare_contracts():
             st.markdown("<div class='panel-card'><div class='section-title'>Removed Risks</div></div>", unsafe_allow_html=True)
             for item in comparison["removed_risks"] or ["No removed risky terms"]:
                 st.markdown(f"<div class='result-card'>{html.escape(item)}</div>", unsafe_allow_html=True)
+        with st.expander("Clause-Focused Changes", expanded=True):
+            if comparison["clause_changes"]:
+                for item in comparison["clause_changes"]:
+                    badge_class = "low" if item["change"] == "Improved" else "high"
+                    st.markdown(
+                        f"<div class='result-card'><div class='badge {badge_class}'>{html.escape(item['change'])}</div><div class='result-term'>{html.escape(item['clause'])}</div><div class='subtle-copy'>{html.escape(item['summary'])}</div><div class='subtle-copy'>Base: {html.escape(item['base_risk'])} · Revised: {html.escape(item['revised_risk'])}</div></div>",
+                        unsafe_allow_html=True,
+                    )
+            else:
+                st.info("No major clause-level changes were detected between the two contracts.")
 
 
 def render_risk_report():
@@ -473,6 +591,8 @@ def render_risk_report():
         for item in top_items[:5]:
             st.markdown(f"<div class='result-card'><div class='result-term'>{html.escape(item['clause'])}</div><div class='subtle-copy'>{html.escape(item['explanation'])}</div></div>", unsafe_allow_html=True)
         st.download_button("📥 Download Report (PDF)", latest_result["pdf_report"], file_name="contract_risk_report.pdf", mime="application/pdf", use_container_width=True)
+        st.download_button("📄 Download Report (DOCX)", latest_result["docx_report"], file_name="contract_risk_report.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", use_container_width=True)
+        st.markdown(f"<div class='panel-card'><div class='section-title'>Analysis Note</div><div class='subtle-copy'>{html.escape(summary['analysis_note'])}</div></div>", unsafe_allow_html=True)
 
 
 def render_history():
@@ -495,7 +615,7 @@ def render_settings_about():
             </div>
             <div class='result-card'>
                 <div class='result-term'>Model Details</div>
-                <div class='subtle-copy'>The current system uses heuristic NLP, regex extraction, rule-based scoring, and Streamlit analytics visualizations for fast demo-ready results.</div>
+                <div class='subtle-copy'>The current system uses heuristic NLP, regex extraction, rule-based scoring, and Streamlit analytics visualizations. Advanced outputs are presented as rule-based legal screening rather than generative legal advice.</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -549,6 +669,14 @@ def render_settings_about():
                 mime="application/pdf",
                 use_container_width=True,
                 key="settings_download_report",
+            )
+            st.download_button(
+                "Download Latest Risk Report (DOCX)",
+                latest_result["docx_report"],
+                file_name="contract_risk_report.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                use_container_width=True,
+                key="settings_download_report_docx",
             )
         else:
             st.info("Run an analysis first to enable report download.")

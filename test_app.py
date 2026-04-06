@@ -67,6 +67,21 @@ class ContractAnalyzerTests(unittest.TestCase):
         self.assertEqual(comparison["safer_contract"], "Base Contract")
         self.assertIn("lower overall risk score", comparison["safety_reason"])
 
+    def test_analysis_returns_clause_cards_breakdown_and_docx(self):
+        text = "Either party may terminate immediately upon breach and unlimited liability shall apply."
+        result = run_full_analysis(text, "sample")
+        clause_names = {item["clause"] for item in result["summary"]["clause_cards"]}
+        self.assertIn("Termination Clause", clause_names)
+        self.assertIn("Liability Clause", clause_names)
+        self.assertIn("keywords", result["summary"]["score_breakdown"])
+        self.assertTrue(result["docx_report"])
+
+    def test_compare_contracts_returns_clause_level_changes(self):
+        base_text = "This agreement is made between Client and Vendor."
+        revised_text = "Either party may terminate immediately upon breach and unlimited liability shall apply."
+        comparison = compare_contracts(base_text, revised_text)
+        self.assertTrue(any(item["change"] == "Worsened" for item in comparison["clause_changes"]))
+
 
 if __name__ == "__main__":
     unittest.main()
