@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Legal Contract Risk Analyzer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #f4efe5;
+            --bg-accent: #fde7d7;
+            --surface: rgba(255, 255, 255, 0.76);
+            --surface-strong: #fffdf8;
+            --text: #1f2937;
+            --muted: #5b6472;
+            --line: rgba(115, 122, 140, 0.16);
+            --shadow: 0 20px 60px rgba(150, 107, 59, 0.15);
+            --high: #d9485f;
+            --medium: #f08c2b;
+            --low: #2f9e44;
+            --neutral: #3b82f6;
+            --high-soft: rgba(217, 72, 95, 0.12);
+            --medium-soft: rgba(240, 140, 43, 0.14);
+            --low-soft: rgba(47, 158, 68, 0.14);
+            --neutral-soft: rgba(59, 130, 246, 0.12);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: "Manrope", sans-serif;
+            color: var(--text);
+            background:
+                radial-gradient(circle at top left, rgba(255, 160, 122, 0.32), transparent 30%),
+                radial-gradient(circle at top right, rgba(80, 200, 180, 0.24), transparent 26%),
+                linear-gradient(135deg, var(--bg) 0%, #fff8ef 48%, var(--bg-accent) 100%);
+        }
+
+        .page-shell {
+            width: min(1180px, calc(100% - 32px));
+            margin: 0 auto;
+            padding: 32px 0 48px;
+        }
+
+        .hero {
+            position: relative;
+            overflow: hidden;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(255, 245, 232, 0.88));
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            border-radius: 32px;
+            box-shadow: var(--shadow);
+            padding: 36px;
+            margin-bottom: 24px;
+        }
+
+        .hero::after {
+            content: "";
+            position: absolute;
+            inset: auto -80px -110px auto;
+            width: 260px;
+            height: 260px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(240, 140, 43, 0.24), transparent 65%);
+        }
+
+        .eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.82);
+            color: #9a5f11;
+            font-size: 0.85rem;
+            font-weight: 800;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+
+        .hero h1 {
+            margin: 18px 0 12px;
+            max-width: 680px;
+            font-size: clamp(2rem, 4vw, 4.2rem);
+            line-height: 1;
+        }
+
+        .hero p {
+            max-width: 720px;
+            margin: 0;
+            color: var(--muted);
+            font-size: 1.03rem;
+            line-height: 1.7;
+        }
+
+        .content-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.85fr);
+            gap: 24px;
+        }
+
+        .card {
+            background: var(--surface);
+            backdrop-filter: blur(18px);
+            border: 1px solid rgba(255, 255, 255, 0.75);
+            border-radius: 28px;
+            box-shadow: var(--shadow);
+        }
+
+        .composer {
+            padding: 28px;
+        }
+
+        .card-title {
+            margin: 0 0 8px;
+            font-size: 1.4rem;
+        }
+
+        .card-copy {
+            margin: 0 0 20px;
+            color: var(--muted);
+            line-height: 1.65;
+        }
+
+        .helper-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+
+        .helper-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 14px;
+            border-radius: 999px;
+            font-size: 0.88rem;
+            font-weight: 700;
+        }
+
+        .helper-pill.high {
+            background: var(--high-soft);
+            color: var(--high);
+        }
+
+        .helper-pill.medium {
+            background: var(--medium-soft);
+            color: var(--medium);
+        }
+
+        .helper-pill.low {
+            background: var(--low-soft);
+            color: var(--low);
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 320px;
+            resize: vertical;
+            border: 1px solid var(--line);
+            border-radius: 24px;
+            padding: 20px 20px 22px;
+            background: rgba(255, 255, 255, 0.9);
+            color: var(--text);
+            font: inherit;
+            font-size: 1rem;
+            line-height: 1.65;
+            outline: none;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+        }
+
+        textarea:focus {
+            border-color: rgba(59, 130, 246, 0.42);
+            box-shadow: 0 0 0 6px rgba(59, 130, 246, 0.12);
+            transform: translateY(-1px);
+        }
+
+        .form-footer {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            margin-top: 16px;
+        }
+
+        .microcopy {
+            color: var(--muted);
+            font-size: 0.92rem;
+        }
+
+        .action-row {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            border: 0;
+            border-radius: 16px;
+            padding: 14px 22px;
+            font: inherit;
+            font-weight: 800;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+        }
+
+        .primary-btn {
+            color: white;
+            background: linear-gradient(135deg, #e76f51, #f08c2b 55%, #ffb703);
+            box-shadow: 0 18px 30px rgba(240, 140, 43, 0.28);
+        }
+
+        .secondary-btn {
+            color: #265073;
+            background: rgba(59, 130, 246, 0.12);
+        }
+
+        .insights {
+            padding: 28px;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+
+        .status-banner {
+            position: relative;
+            overflow: hidden;
+            padding: 22px;
+            border-radius: 24px;
+            color: white;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16);
+        }
+
+        .status-banner::after {
+            content: "";
+            position: absolute;
+            top: -38px;
+            right: -28px;
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.12);
+        }
+
+        .status-banner.high {
+            background: linear-gradient(135deg, #b4233d, #d9485f, #ef476f);
+        }
+
+        .status-banner.medium {
+            background: linear-gradient(135deg, #c76a09, #f08c2b, #f7b267);
+        }
+
+        .status-banner.low {
+            background: linear-gradient(135deg, #1f7a39, #2f9e44, #57cc99);
+        }
+
+        .status-banner.neutral {
+            background: linear-gradient(135deg, #285fcb, #3b82f6, #60a5fa);
+        }
+
+        .status-label {
+            position: relative;
+            z-index: 1;
+            font-size: 0.9rem;
+            font-weight: 800;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            opacity: 0.9;
+        }
+
+        .status-banner h2 {
+            position: relative;
+            z-index: 1;
+            margin: 10px 0 8px;
+            font-size: 1.9rem;
+        }
+
+        .status-banner p {
+            position: relative;
+            z-index: 1;
+            margin: 0;
+            line-height: 1.6;
+            max-width: 34ch;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 14px;
+        }
+
+        .stat-tile {
+            padding: 18px;
+            border-radius: 22px;
+            background: var(--surface-strong);
+            border: 1px solid var(--line);
+        }
+
+        .stat-label {
+            display: block;
+            color: var(--muted);
+            font-size: 0.92rem;
+            margin-bottom: 10px;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 800;
+            line-height: 1;
+        }
+
+        .stat-value.high {
+            color: var(--high);
+        }
+
+        .stat-value.medium {
+            color: var(--medium);
+        }
+
+        .stat-value.low {
+            color: var(--low);
+        }
+
+        .stat-value.neutral {
+            color: var(--neutral);
+        }
+
+        .results-panel {
+            background: var(--surface-strong);
+            border: 1px solid var(--line);
+            border-radius: 24px;
+            padding: 22px;
+        }
+
+        .results-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .results-header h3 {
+            margin: 0;
+            font-size: 1.1rem;
+        }
+
+        .result-count {
+            padding: 8px 12px;
+            border-radius: 999px;
+            background: var(--neutral-soft);
+            color: var(--neutral);
+            font-size: 0.86rem;
+            font-weight: 800;
+        }
+
+        .result-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            display: grid;
+            gap: 12px;
+        }
+
+        .result-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 16px 18px;
+            border-radius: 18px;
+            border: 1px solid transparent;
+        }
+
+        .result-item.high {
+            background: var(--high-soft);
+            border-color: rgba(217, 72, 95, 0.14);
+        }
+
+        .result-item.medium {
+            background: var(--medium-soft);
+            border-color: rgba(240, 140, 43, 0.16);
+        }
+
+        .result-item.low {
+            background: var(--low-soft);
+            border-color: rgba(47, 158, 68, 0.16);
+        }
+
+        .result-term {
+            font-weight: 800;
+            text-transform: capitalize;
+        }
+
+        .risk-chip {
+            padding: 8px 12px;
+            border-radius: 999px;
+            font-size: 0.82rem;
+            font-weight: 800;
+            white-space: nowrap;
+        }
+
+        .risk-chip.high {
+            background: rgba(255, 255, 255, 0.72);
+            color: var(--high);
+        }
+
+        .risk-chip.medium {
+            background: rgba(255, 255, 255, 0.72);
+            color: var(--medium);
+        }
+
+        .risk-chip.low {
+            background: rgba(255, 255, 255, 0.72);
+            color: var(--low);
+        }
+
+        .empty-state {
+            padding: 28px 22px;
+            border-radius: 24px;
+            text-align: center;
+            background:
+                linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(87, 204, 153, 0.12)),
+                var(--surface-strong);
+            border: 1px dashed rgba(59, 130, 246, 0.2);
+        }
+
+        .empty-state h3 {
+            margin: 0 0 10px;
+        }
+
+        .empty-state p {
+            margin: 0;
+            color: var(--muted);
+            line-height: 1.65;
+        }
+
+        @media (max-width: 980px) {
+            .content-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 640px) {
+            .page-shell {
+                width: min(100% - 20px, 100%);
+                padding-top: 20px;
+            }
+
+            .hero,
+            .composer,
+            .insights {
+                padding: 22px;
+                border-radius: 24px;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .form-footer,
+            .results-header,
+            .result-item {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .action-row button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    {% set overall = summary.overall_risk %}
+    {% set overall_class = 'neutral' %}
+    {% if overall == 'High Risk' %}
+        {% set overall_class = 'high' %}
+    {% elif overall == 'Medium Risk' %}
+        {% set overall_class = 'medium' %}
+    {% elif overall == 'Low Risk' %}
+        {% set overall_class = 'low' %}
+    {% endif %}
+
+    <div class="page-shell">
+        <section class="hero">
+            <div class="eyebrow">Contract Intelligence Workspace</div>
+            <h1>Spot risky legal language faster, with clearer signals.</h1>
+            <p>
+                Paste a clause, agreement, or full contract below to surface risky terms, get an instant severity snapshot,
+                and review results in a cleaner, more readable format.
+            </p>
+        </section>
+
+        <div class="content-grid">
+            <section class="card composer">
+                <h2 class="card-title">Analyze contract text</h2>
+                <p class="card-copy">
+                    This analyzer scans for high, medium, and low risk indicators so you can quickly focus on clauses that may need closer review.
+                </p>
+
+                <div class="helper-row">
+                    <span class="helper-pill high">High: penalty, breach, liability</span>
+                    <span class="helper-pill medium">Medium: delay, obligation, indemnify</span>
+                    <span class="helper-pill low">Low: may, should, optional</span>
+                </div>
+
+                <form method="POST">
+                    <textarea name="contract" placeholder="Paste contract text here... For example: If either party commits a breach, the agreement may terminate immediately and liability may apply.">{{ text }}</textarea>
+
+                    <div class="form-footer">
+                        <div class="microcopy">
+                            Better readability, faster scanning, and a friendlier workflow for quick legal triage.
+                        </div>
+                        <div class="action-row">
+                            <button class="primary-btn" type="submit">Analyze Contract</button>
+                            <button class="secondary-btn" type="button" onclick="window.location.href='/'">Clear</button>
+                        </div>
+                    </div>
+                </form>
+            </section>
+
+            <aside class="card insights">
+                <div class="status-banner {{ overall_class }}">
+                    <div class="status-label">Overall Assessment</div>
+                    <h2>{{ summary.overall_risk }}</h2>
+                    <p>
+                        {% if summary.total_matches %}
+                            {{ summary.total_matches }} risk indicator{{ '' if summary.total_matches == 1 else 's' }} found in the submitted text.
+                        {% else %}
+                            No tracked risk keywords were found in the current submission.
+                        {% endif %}
+                    </p>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-tile">
+                        <span class="stat-label">High Risk</span>
+                        <div class="stat-value high">{{ summary.counts['High Risk'] }}</div>
+                    </div>
+                    <div class="stat-tile">
+                        <span class="stat-label">Medium Risk</span>
+                        <div class="stat-value medium">{{ summary.counts['Medium Risk'] }}</div>
+                    </div>
+                    <div class="stat-tile">
+                        <span class="stat-label">Low Risk</span>
+                        <div class="stat-value low">{{ summary.counts['Low Risk'] }}</div>
+                    </div>
+                    <div class="stat-tile">
+                        <span class="stat-label">Total Matches</span>
+                        <div class="stat-value neutral">{{ summary.total_matches }}</div>
+                    </div>
+                </div>
+
+                <div class="results-panel">
+                    {% if analysis %}
+                        <div class="results-header">
+                            <h3>Detected Terms</h3>
+                            <div class="result-count">{{ summary.total_matches }} found</div>
+                        </div>
+                        <ul class="result-list">
+                            {% for word, level in analysis %}
+                                {% set level_class = level.lower().split()[0] %}
+                                <li class="result-item {{ level_class }}">
+                                    <span class="result-term">{{ word }}</span>
+                                    <span class="risk-chip {{ level_class }}">{{ level }}</span>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <div class="empty-state">
+                            <h3>Ready for analysis</h3>
+                            <p>
+                                Submit contract text to see a colorful risk overview, keyword matches, and a quick severity breakdown.
+                            </p>
+                        </div>
+                    {% endif %}
+                </div>
+            </aside>
+        </div>
+    </div>
+</body>
+</html>
