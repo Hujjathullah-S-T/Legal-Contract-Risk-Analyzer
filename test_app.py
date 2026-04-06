@@ -4,6 +4,8 @@ from analyzer_core import (
     analyze_sentences,
     analyze_text,
     answer_question,
+    answer_question_details,
+    build_contract_docx,
     build_summary,
     compare_contracts,
     detect_clause_dependencies,
@@ -83,6 +85,7 @@ class ContractAnalyzerTests(unittest.TestCase):
         revised_text = "Either party may terminate immediately upon breach and unlimited liability shall apply."
         comparison = compare_contracts(base_text, revised_text)
         self.assertTrue(any(item["change"] == "Worsened" for item in comparison["clause_changes"]))
+        self.assertTrue(any(item["revised_clause_text"] for item in comparison["clause_changes"]))
 
     def test_contract_question_answering_returns_payment_answer(self):
         text = "The Client shall pay INR 5000 within 15 days of invoice."
@@ -121,6 +124,24 @@ class ContractAnalyzerTests(unittest.TestCase):
         )
         self.assertIn("Vendor", answer)
         self.assertIn("deliver", answer.lower())
+
+    def test_contract_question_details_include_confidence_and_source(self):
+        text = "Client shall pay INR 5000 on receipt of invoice."
+        result = run_full_analysis(text, "details")
+        details = answer_question_details(
+            "What is the payment amount?",
+            text,
+            result["summary"]["entities"],
+            result["summary"]["obligations"],
+            result["findings"],
+        )
+        self.assertIn("confidence", details)
+        self.assertIn("source_sentence", details)
+        self.assertIn("INR 5000", details["answer"])
+
+    def test_build_contract_docx_returns_bytes(self):
+        content = build_contract_docx("Safer Revised Contract", "Clause 1: Payment within 15 days.")
+        self.assertTrue(content)
 
     def test_reviser_reduces_score_for_risky_contract(self):
         text = "Either party may terminate immediately upon breach and unlimited liability shall apply."

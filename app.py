@@ -8,6 +8,8 @@ import streamlit as st
 from analyzer_core import (
     ROLE_DESCRIPTIONS,
     answer_question,
+    answer_question_details,
+    build_contract_docx,
     compare_contracts,
     highlight_sentences_with_tooltips,
     read_uploaded_file,
@@ -18,6 +20,7 @@ from analyzer_core import (
 
 st.set_page_config(page_title="Legal Contract Risk Analyzer", page_icon="⚖️", layout="wide")
 HISTORY_PATH = Path("analysis_history.json")
+ANALYSIS_ARCHIVE_PATH = Path("analysis_archive.json")
 SAMPLE_CONTRACTS = {
     "Balanced Service Agreement": (
         "This agreement is made between Client and Vendor. The Vendor shall deliver monthly support reports. "
@@ -34,6 +37,11 @@ SAMPLE_CONTRACTS = {
         "Reasonable changes may be made from time to time. Payment may be adjusted if needed."
     ),
 }
+SAMPLE_QUESTIONS = [
+    "Who must deliver the goods?",
+    "What is the payment amount?",
+    "What is the termination clause?",
+]
 
 
 def load_history():
@@ -52,6 +60,35 @@ def save_history(history):
         pass
 
 
+def load_analysis_archive():
+    if not ANALYSIS_ARCHIVE_PATH.exists():
+        return []
+    try:
+        return json.loads(ANALYSIS_ARCHIVE_PATH.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return []
+
+
+def save_analysis_archive(archive):
+    try:
+        ANALYSIS_ARCHIVE_PATH.write_text(json.dumps(archive, indent=2), encoding="utf-8")
+    except OSError:
+        pass
+
+
+def archive_analysis(result):
+    archive = st.session_state.setdefault("analysis_archive", [])
+    archive.insert(
+        0,
+        {
+            "created_at": result["created_at"],
+            "source_name": result["source_name"],
+            "text": result["text"],
+        },
+    )
+    save_analysis_archive(archive)
+
+
 def store_analysis(result):
     record = {
         "Date": result["created_at"],
@@ -65,6 +102,7 @@ def store_analysis(result):
     history = st.session_state.setdefault("analysis_history", [])
     history.insert(0, record)
     save_history(history)
+    archive_analysis(result)
     st.session_state["latest_result"] = result
     st.session_state["contract_chat_history"] = []
     st.session_state["revised_contract_package"] = None
@@ -82,6 +120,8 @@ st.session_state.setdefault("issue_type", "UI issue")
 st.session_state.setdefault("issue_details", "")
 st.session_state.setdefault("contract_chat_history", [])
 st.session_state.setdefault("revised_contract_package", None)
+st.session_state.setdefault("analysis_archive", load_analysis_archive())
+st.session_state.setdefault("clause_filter", "")
 
 theme_mode = st.session_state.get("theme_mode", "Light")
 if theme_mode == "Light":
@@ -394,8 +434,22 @@ def render_dashboard():
 
 def render_clause_cards(summary):
     st.markdown("<div class='panel-card'><div class='section-title'>Clause Review</div></div>", unsafe_allow_html=True)
+    clause_filter = st.text_input(
+        "Filter clauses",
+        value=st.session_state.get("clause_filter", ""),
+        placeholder="Search clause name or recommendation...",
+        key="clause_filter",
+    ).strip().lower()
+    visible_cards = [
+        item
+        for item in summary["clause_cards"]
+        if not clause_filter
+        or clause_filter in item["clause"].lower()
+        or clause_filter in item["recommendation"].lower()
+        or clause_filter in item["explanation"].lower()
+    ]
     cols = st.columns(2, gap="large")
-    for index, item in enumerate(summary["clause_cards"]):
+    for index, item in enumerate(visible_cards):
         badge_class = "neutral" if item["risk_level"] == "Needs Review" else item["risk_level"].lower().split()[0]
         matches = ", ".join(item["matches"][:3]) if item["matches"] else "No direct clause terms found"
         with cols[index % 2]:
@@ -411,6 +465,8 @@ def render_clause_cards(summary):
                 """,
                 unsafe_allow_html=True,
             )
+    if not visible_cards:
+        st.info("No clauses matched the current filter.")
 
 
 def render_score_breakdown(summary):
@@ -459,12 +515,21 @@ def render_analyze_contract():
         if not contract_text.strip():
             st.warning("Paste some contract text first.")
         else:
-            with st.spinner("Analyzing contract..."):
-                source_name = st.session_state.get("uploaded_contract_name") if uploaded_file is not None else "Pasted Contract"
-                result = run_full_analysis(contract_text, source_name)
-                store_analysis(result)
-                st.success("Analysis completed successfully.")
-                st.progress(min(result["summary"]["overall_score"], 100) / 100)
+            progress_box = st.empty()
+            progress_bar = st.progress(0)
+            progress_box.info("Extracting text...")
+            progress_bar.progress(15)
+            progress_box.info("Analyzing clauses...")
+            progress_bar.progress(45)
+            progress_box.info("Scoring risks...")
+            progress_bar.progress(75)
+            source_name = st.session_state.get("uploaded_contract_name") if uploaded_file is not None else "Pasted Contract"
+            result = run_full_analysis(contract_text, source_name)
+            progress_box.info("Preparing report...")
+            progress_bar.progress(95)
+            store_analysis(result)
+            progress_bar.progress(100)
+            progress_box.success("Analysis completed successfully.")
     result = st.session_state.get("latest_result")
     if result and result["text"]:
         summary = result["summary"]
@@ -509,6 +574,12 @@ def render_analyze_contract():
                 st.info("No risky sentences were identified by the current rule set.")
         with st.expander("AI Contract Chatbot", expanded=True):
             st.caption("Ask questions about the currently analyzed contract. Answers are grounded in the analyzed text and rule-based signals.")
+            sample_q_cols = st.columns(len(SAMPLE_QUESTIONS))
+            for col, sample_question in zip(sample_q_cols, SAMPLE_QUESTIONS):
+                with col:
+                    if st.button(sample_question, key=f"sample_q_{sample_question}", use_container_width=True):
+                        st.session_state["contract_question"] = sample_question
+                        st.rerun()
             question = st.text_input(
                 "Ask about the contract",
                 placeholder="Example: Who is liable? What is the payment term? Is termination risky?",
@@ -518,7 +589,7 @@ def render_analyze_contract():
                 if not question.strip():
                     st.warning("Enter a contract question first.")
                 else:
-                    response = answer_question(
+                    response = answer_question_details(
                         question,
                         result["text"],
                         summary["entities"],
@@ -529,13 +600,15 @@ def render_analyze_contract():
                         0,
                         {
                             "question": question.strip(),
-                            "answer": response,
+                            "answer": response["answer"],
+                            "source_sentence": response["source_sentence"],
+                            "confidence": response["confidence"],
                         },
                     )
             if st.session_state["contract_chat_history"]:
                 for item in st.session_state["contract_chat_history"][:4]:
                     st.markdown(
-                        f"<div class='result-card'><div class='result-term'>Q: {html.escape(item['question'])}</div><div class='subtle-copy'>A: {html.escape(item['answer'])}</div></div>",
+                        f"<div class='result-card'><div class='badge neutral'>{html.escape(item['confidence'])}</div><div class='result-term'>Q: {html.escape(item['question'])}</div><div class='subtle-copy'>A: {html.escape(item['answer'])}</div><div class='subtle-copy'>Source: {html.escape(item['source_sentence'] or 'Derived from the analyzed contract context.')}</div></div>",
                         unsafe_allow_html=True,
                     )
         with st.expander("Reduce Risk With Safer Redraft", expanded=True):
@@ -545,6 +618,7 @@ def render_analyze_contract():
             revised_package = st.session_state.get("revised_contract_package")
             if revised_package:
                 revised_result = revised_package["revised_result"]
+                revised_docx = build_contract_docx("Safer Revised Contract", revised_package["revised_text"])
                 st.markdown(
                     f"<div class='result-card'><div class='result-term'>Risk Reduction</div><div class='subtle-copy'>Original: {summary['overall_risk']} ({summary['overall_score']}/100) · Revised: {revised_result['summary']['overall_risk']} ({revised_result['summary']['overall_score']}/100)</div></div>",
                     unsafe_allow_html=True,
@@ -555,11 +629,32 @@ def render_analyze_contract():
                             f"<div class='result-card'><div class='result-term'>{html.escape(item['term'])}</div><div class='subtle-copy'>{html.escape(item['replacement'])}</div></div>",
                             unsafe_allow_html=True,
                         )
+                copy_col, download_col = st.columns(2)
+                with copy_col:
+                    st.markdown("<div class='card-grid-title'>Copy-Ready Revised Contract</div>", unsafe_allow_html=True)
+                    st.code(revised_package["revised_text"], language="text")
+                with download_col:
+                    st.download_button(
+                        "Download Safer Revised Contract (DOCX)",
+                        revised_docx,
+                        file_name="safer_revised_contract.docx",
+                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        use_container_width=True,
+                        key="download_safer_contract_docx",
+                    )
+                    st.download_button(
+                        "Download Safer Revised Contract (TXT)",
+                        revised_package["revised_text"],
+                        file_name="safer_revised_contract.txt",
+                        mime="text/plain",
+                        use_container_width=True,
+                        key="download_safer_contract_txt",
+                    )
                 st.text_area(
                     "Safer Revised Contract",
                     revised_package["revised_text"],
                     height=220,
-                    key="safer_revised_contract_text",
+                    key="safer_revised_contract_text_view",
                 )
 
 
@@ -624,6 +719,16 @@ def render_compare_contracts():
                         f"<div class='result-card'><div class='badge {badge_class}'>{html.escape(item['change'])}</div><div class='result-term'>{html.escape(item['clause'])}</div><div class='subtle-copy'>{html.escape(item['summary'])}</div><div class='subtle-copy'>Base: {html.escape(item['base_risk'])} · Revised: {html.escape(item['revised_risk'])}</div></div>",
                         unsafe_allow_html=True,
                     )
+                    if item["base_clause_text"] or item["revised_clause_text"]:
+                        clause_cols = st.columns(2)
+                        with clause_cols[0]:
+                            st.markdown("<div class='card-grid-title'>Base Clause Text</div>", unsafe_allow_html=True)
+                            for sentence in item["base_clause_text"] or ["No matching base clause sentence"]:
+                                st.markdown(f"<div class='result-card'><div class='subtle-copy'>{html.escape(sentence)}</div></div>", unsafe_allow_html=True)
+                        with clause_cols[1]:
+                            st.markdown("<div class='card-grid-title'>Revised Clause Text</div>", unsafe_allow_html=True)
+                            for sentence in item["revised_clause_text"] or ["No matching revised clause sentence"]:
+                                st.markdown(f"<div class='result-card'><div class='subtle-copy'>{html.escape(sentence)}</div></div>", unsafe_allow_html=True)
             else:
                 st.info("No major clause-level changes were detected between the two contracts.")
 
@@ -665,6 +770,25 @@ def render_history():
         st.info("No analysis history yet.")
         return
     st.dataframe(pd.DataFrame(history), use_container_width=True)
+    st.markdown("<div class='panel-card'><div class='section-title'>Reopen Saved Analysis</div></div>", unsafe_allow_html=True)
+    archive = st.session_state.get("analysis_archive", [])
+    if not archive:
+        st.info("No saved full analyses are available yet.")
+        return
+    selected_item = st.selectbox(
+        "Saved analyses",
+        options=list(range(len(archive))),
+        format_func=lambda idx: f"{archive[idx]['created_at']} · {archive[idx]['source_name']}",
+        key="history_reopen_select",
+    )
+    if st.button("Open Selected Analysis", use_container_width=True):
+        item = archive[selected_item]
+        restored = run_full_analysis(item["text"], item["source_name"])
+        restored["created_at"] = item["created_at"]
+        st.session_state["latest_result"] = restored
+        st.session_state["contract_text"] = item["text"]
+        st.session_state["current_page"] = "📝 Analyze Contract"
+        st.rerun()
 
 
 def render_settings_about():

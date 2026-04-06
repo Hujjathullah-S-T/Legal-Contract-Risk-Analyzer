@@ -485,11 +485,15 @@ def build_recommendations(findings, ambiguity_findings, missing_clauses):
     return recommendations[:8]
 
 
-def answer_question(question, text, entities, obligations, findings):
+def answer_question_details(question, text, entities, obligations, findings):
     question_lower = question.lower().strip()
     sentences = split_sentences(text)
     if not question_lower:
-        return "Ask a question about payment, liability, termination, confidentiality, dates, or parties."
+        return {
+            "answer": "Ask a question about payment, liability, termination, confidentiality, dates, or parties.",
+            "source_sentence": "",
+            "confidence": "Low confidence",
+        }
 
     def best_matching_sentence(preferred_keywords=None):
         preferred_keywords = preferred_keywords or []
@@ -509,43 +513,71 @@ def answer_question(question, text, entities, obligations, findings):
             if score > 0:
                 ranked.append((score, sentence))
         if not ranked:
-            return None
-        return sorted(ranked, key=lambda item: (item[0], len(item[1])), reverse=True)[0][1]
+            return None, 0
+        best_score, best_sentence = sorted(ranked, key=lambda item: (item[0], len(item[1])), reverse=True)[0]
+        return best_sentence, best_score
+
+    def confidence_label(score):
+        if score >= 14:
+            return "High confidence"
+        if score >= 7:
+            return "Moderate confidence"
+        return "Low confidence"
 
     if "who" in question_lower and obligations:
         for obligation in obligations:
             subject_lower = obligation["subject"].lower()
             if subject_lower in question_lower:
-                return f"{obligation['subject']} is obligated to {obligation['action'].lower()} {obligation['object']}."
+                return {
+                    "answer": f"{obligation['subject']} is obligated to {obligation['action'].lower()} {obligation['object']}.",
+                    "source_sentence": obligation["sentence"],
+                    "confidence": "High confidence",
+                }
         first = obligations[0]
-        return f"{first['subject']} is obligated to {first['action'].lower()} {first['object']}."
+        return {
+            "answer": f"{first['subject']} is obligated to {first['action'].lower()} {first['object']}.",
+            "source_sentence": first["sentence"],
+            "confidence": "Moderate confidence",
+        }
     if "date" in question_lower or "when" in question_lower:
         if entities["Dates"]:
-            matched_sentence = best_matching_sentence(["date", "term", "start", "end", "effective", "payment", "termination"])
+            matched_sentence, score = best_matching_sentence(["date", "term", "start", "end", "effective", "payment", "termination"])
             if matched_sentence:
-                return matched_sentence
-            return f"Detected date references: {', '.join(entities['Dates'][:3])}."
+                return {"answer": matched_sentence, "source_sentence": matched_sentence, "confidence": confidence_label(score)}
+            return {"answer": f"Detected date references: {', '.join(entities['Dates'][:3])}.", "source_sentence": "", "confidence": "Moderate confidence"}
     if "party" in question_lower or "parties" in question_lower:
         if entities["Parties"]:
-            return f"Detected parties: {', '.join(entities['Parties'][:5])}."
+            return {"answer": f"Detected parties: {', '.join(entities['Parties'][:5])}.", "source_sentence": "", "confidence": "Moderate confidence"}
     if "money" in question_lower or "amount" in question_lower or "payment" in question_lower:
         if entities["Money Values"]:
-            matched_sentence = best_matching_sentence(["pay", "payment", "invoice", "fee", "amount"])
+            matched_sentence, score = best_matching_sentence(["pay", "payment", "invoice", "fee", "amount"])
             if matched_sentence:
-                return matched_sentence
-            return f"Detected money values: {', '.join(entities['Money Values'][:3])}."
+                return {"answer": matched_sentence, "source_sentence": matched_sentence, "confidence": confidence_label(score)}
+            return {"answer": f"Detected money values: {', '.join(entities['Money Values'][:3])}.", "source_sentence": "", "confidence": "Moderate confidence"}
     for topic, keywords in QUESTION_TOPICS.items():
         if topic in question_lower or any(keyword in question_lower for keyword in keywords):
-            matched_sentence = best_matching_sentence(keywords)
+            matched_sentence, score = best_matching_sentence(keywords)
             if matched_sentence:
-                return matched_sentence
-    matched_sentence = best_matching_sentence()
+                return {"answer": matched_sentence, "source_sentence": matched_sentence, "confidence": confidence_label(score)}
+    matched_sentence, score = best_matching_sentence()
     if matched_sentence:
-        return matched_sentence
+        return {"answer": matched_sentence, "source_sentence": matched_sentence, "confidence": confidence_label(score)}
     if findings:
         strongest = sorted(findings, key=lambda item: level_priority(item["level"]))[0]
-        return f"The strongest detected risk is '{strongest['term']}' under {strongest['level']}. {strongest['explanation']}"
-    return "I could not find a direct answer in the contract text. Try asking about payment, liability, termination, or dates."
+        return {
+            "answer": f"The strongest detected risk is '{strongest['term']}' under {strongest['level']}. {strongest['explanation']}",
+            "source_sentence": "",
+            "confidence": "Low confidence",
+        }
+    return {
+        "answer": "I could not find a direct answer in the contract text. Try asking about payment, liability, termination, or dates.",
+        "source_sentence": "",
+        "confidence": "Low confidence",
+    }
+
+
+def answer_question(question, text, entities, obligations, findings):
+    return answer_question_details(question, text, entities, obligations, findings)["answer"]
 
 
 def revise_contract_to_lower_risk(text, summary, findings):
@@ -633,10 +665,15 @@ def compare_contracts(base_text, compare_text):
     clause_changes = []
     base_cards = {item["clause"]: item for item in base_summary["clause_cards"]}
     compare_cards = {item["clause"]: item for item in compare_summary["clause_cards"]}
+    base_sentences = split_sentences(base_text)
+    compare_sentences = split_sentences(compare_text)
     risk_rank = {"High Risk": 3, "Medium Risk": 2, "Low Risk": 1, "No Immediate Risk": 0, "Needs Review": 0}
     for clause_name in CLAUSE_LIBRARY:
         base_card = base_cards.get(clause_name, {"risk_level": "Needs Review", "score": 0})
         compare_card = compare_cards.get(clause_name, {"risk_level": "Needs Review", "score": 0})
+        clause_keywords = CLAUSE_LIBRARY[clause_name]
+        base_clause_sentences = [sentence for sentence in base_sentences if any(contains_term(sentence, keyword) for keyword in clause_keywords)]
+        compare_clause_sentences = [sentence for sentence in compare_sentences if any(contains_term(sentence, keyword) for keyword in clause_keywords)]
         delta = compare_card["score"] - base_card["score"]
         if delta < 0:
             change = "Improved"
@@ -662,6 +699,8 @@ def compare_contracts(base_text, compare_text):
                 "summary": summary,
                 "base_risk": base_card["risk_level"],
                 "revised_risk": compare_card["risk_level"],
+                "base_clause_text": base_clause_sentences[:2],
+                "revised_clause_text": compare_clause_sentences[:2],
             }
         )
     return {
@@ -917,6 +956,18 @@ def build_docx_report(report_text):
             document.add_paragraph(line)
         else:
             document.add_paragraph("")
+    buffer = io.BytesIO()
+    document.save(buffer)
+    buffer.seek(0)
+    return buffer.getvalue()
+
+
+def build_contract_docx(title, text):
+    document = Document()
+    document.add_heading(title, level=0)
+    for paragraph in re.split(r"\n+", text or ""):
+        if paragraph.strip():
+            document.add_paragraph(paragraph.strip())
     buffer = io.BytesIO()
     document.save(buffer)
     buffer.seek(0)
