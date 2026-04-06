@@ -2,8 +2,15 @@
 # Legal Contract Risk Analyzer
 
 ## Features
-- Detects risky keywords in legal contracts
-- Classifies risk as High, Medium, and Low
+- Overall risk scoring system from 0 to 100
+- Sentence-level risk analysis with explanations
+- Named entity extraction for parties, dates, and money values
+- Highlighted risky words directly in contract text
+- Upload support for PDF, DOCX, and TXT files
+- Clause classification and missing clause detection
+- Dashboard charts and top risky terms
+- Contract comparison tool for two versions
+- Downloadable TXT and PDF reports
 - Modern colorful dashboard built with Streamlit
 - Ready for deployment on Streamlit Community Cloud
 
