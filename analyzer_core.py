@@ -428,10 +428,32 @@ def compare_contracts(base_text, compare_text):
     compare_terms = {item["term"] for item in compare_findings}
     base_summary = build_summary(base_findings, base_text, analyze_sentences(base_text))
     compare_summary = build_summary(compare_findings, compare_text, analyze_sentences(compare_text))
+    if base_summary["overall_score"] < compare_summary["overall_score"]:
+        safer_contract = "Base Contract"
+        safety_reason = "The base contract has a lower overall risk score."
+    elif compare_summary["overall_score"] < base_summary["overall_score"]:
+        safer_contract = "Revised Contract"
+        safety_reason = "The revised contract has a lower overall risk score."
+    else:
+        base_signal_count = len(base_findings) + len(base_summary["ambiguity"]) + len(base_summary["dependencies"]) + len(base_summary["compliance_issues"])
+        compare_signal_count = len(compare_findings) + len(compare_summary["ambiguity"]) + len(compare_summary["dependencies"]) + len(compare_summary["compliance_issues"])
+        if base_signal_count < compare_signal_count:
+            safer_contract = "Base Contract"
+            safety_reason = "Both scores are equal, but the base contract has fewer overall risk signals."
+        elif compare_signal_count < base_signal_count:
+            safer_contract = "Revised Contract"
+            safety_reason = "Both scores are equal, but the revised contract has fewer overall risk signals."
+        else:
+            safer_contract = "Both are equally safe"
+            safety_reason = "Both contracts have the same score and similar risk signal counts."
     return {
         "similarity": round(SequenceMatcher(None, normalize_text(base_text).lower(), normalize_text(compare_text).lower()).ratio() * 100, 2),
         "base_score": base_summary["overall_score"],
         "compare_score": compare_summary["overall_score"],
+        "base_risk": base_summary["overall_risk"],
+        "compare_risk": compare_summary["overall_risk"],
+        "safer_contract": safer_contract,
+        "safety_reason": safety_reason,
         "added_risks": sorted(compare_terms - base_terms),
         "removed_risks": sorted(base_terms - compare_terms),
     }
@@ -454,11 +476,23 @@ def build_summary(findings, text, sentence_findings):
     similar_clauses = detect_similar_clauses(text)
     compliance_issues = run_compliance_checks(text)
 
+    has_material_risk_signal = any(
+        [
+            findings,
+            ambiguity_findings,
+            compliance_issues,
+            dependencies,
+        ]
+    )
+
     raw_score = weights["High Risk"] + weights["Medium Risk"] + weights["Low Risk"]
     raw_score += min(len(ambiguity_findings) * 4, 12)
     raw_score += min(len(compliance_issues) * 8, 16)
     raw_score += min(len(dependencies) * 6, 12)
-    overall_score = min(raw_score + min(len(sentence_findings) * 4, 12), 100)
+    if has_material_risk_signal:
+        overall_score = min(raw_score + min(len(sentence_findings) * 4, 12), 100)
+    else:
+        overall_score = 0
 
     if overall_score >= 80:
         overall_risk = "High Risk"

@@ -4,9 +4,11 @@ from analyzer_core import (
     analyze_sentences,
     analyze_text,
     build_summary,
+    compare_contracts,
     detect_clause_dependencies,
     detect_sensitive_data,
     mask_sensitive_data,
+    run_full_analysis,
 )
 
 
@@ -48,6 +50,22 @@ class ContractAnalyzerTests(unittest.TestCase):
         sensitive_items = detect_sensitive_data(text)
         self.assertTrue(any(item["type"] == "Bank Account" for item in sensitive_items))
         self.assertIn("[MASKED_ACCOUNT]", mask_sensitive_data(text))
+
+    def test_clean_contract_returns_no_immediate_risk(self):
+        text = (
+            "This agreement is made between Client and Vendor. "
+            "The parties agree to work together for software support from 1 January 2026."
+        )
+        result = run_full_analysis(text, "neutral")
+        self.assertEqual(result["summary"]["overall_risk"], "No Immediate Risk")
+        self.assertEqual(result["summary"]["overall_score"], 0)
+
+    def test_compare_contracts_reports_which_contract_is_safer(self):
+        base_text = "This agreement is made between Client and Vendor for support services."
+        revised_text = "Either party may terminate immediately upon breach and unlimited liability shall apply."
+        comparison = compare_contracts(base_text, revised_text)
+        self.assertEqual(comparison["safer_contract"], "Base Contract")
+        self.assertIn("lower overall risk score", comparison["safety_reason"])
 
 
 if __name__ == "__main__":

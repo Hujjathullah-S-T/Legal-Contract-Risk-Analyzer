@@ -38,12 +38,14 @@ st.session_state.setdefault("uploaded_contract_name", "Uploaded Contract")
 st.session_state.setdefault("current_page", "🏠 Home")
 st.session_state.setdefault("theme_mode", "Dark")
 st.session_state.setdefault("reported_issues", [])
+st.session_state.setdefault("issue_type", "UI issue")
+st.session_state.setdefault("issue_details", "")
 
 theme_mode = st.session_state.get("theme_mode", "Dark")
 if theme_mode == "Light":
     theme = {
         "text": "#1f2937",
-        "bg": "radial-gradient(circle at top left, rgba(180, 83, 9, 0.10), transparent 24%), radial-gradient(circle at top right, rgba(12, 74, 110, 0.08), transparent 24%), linear-gradient(135deg, #f8f4ea 0%, #f5efe2 48%, #fcfaf5 100%)",
+        "bg": "radial-gradient(circle at 12% 14%, rgba(180, 83, 9, 0.16), transparent 18%), radial-gradient(circle at 88% 12%, rgba(12, 74, 110, 0.12), transparent 18%), linear-gradient(135deg, #f8f3e7 0%, #f3ebdc 46%, #fcfaf5 100%)",
         "sidebar_bg": "linear-gradient(180deg, #efe6d4 0%, #f7f2e7 100%)",
         "sidebar_border": "rgba(120, 113, 108, 0.18)",
         "card_bg": "rgba(255, 252, 246, 0.92)",
@@ -67,12 +69,16 @@ if theme_mode == "Light":
         "input_text": "#1f2937",
         "input_border": "rgba(120,113,108,0.20)",
         "file_bg": "rgba(255,250,240,0.78)",
+        "accent": "#8b5e34",
+        "accent_soft": "rgba(139, 94, 52, 0.10)",
+        "surface_alt": "rgba(255, 247, 233, 0.86)",
+        "divider": "rgba(139, 94, 52, 0.14)",
         "primary_label": "Professional legal light workspace",
     }
 else:
     theme = {
         "text": "#e5eef9",
-        "bg": "radial-gradient(circle at top left, rgba(180, 83, 9, 0.14), transparent 24%), radial-gradient(circle at top right, rgba(250, 204, 21, 0.08), transparent 18%), linear-gradient(135deg, #0b1220 0%, #111827 42%, #1a2234 100%)",
+        "bg": "radial-gradient(circle at 10% 12%, rgba(180, 83, 9, 0.18), transparent 18%), radial-gradient(circle at 86% 10%, rgba(212, 175, 55, 0.12), transparent 18%), linear-gradient(135deg, #09111d 0%, #111827 42%, #172235 100%)",
         "sidebar_bg": "linear-gradient(180deg, #0b1120 0%, #141b2d 100%)",
         "sidebar_border": "rgba(148, 163, 184, 0.10)",
         "card_bg": "rgba(17, 24, 39, 0.78)",
@@ -96,6 +102,10 @@ else:
         "input_text": "#e2e8f0",
         "input_border": "rgba(212, 175, 55, 0.16)",
         "file_bg": "rgba(15, 23, 42, 0.54)",
+        "accent": "#d4af37",
+        "accent_soft": "rgba(212, 175, 55, 0.10)",
+        "surface_alt": "rgba(22, 31, 49, 0.72)",
+        "divider": "rgba(212, 175, 55, 0.12)",
         "primary_label": "Professional legal dark workspace",
     }
 
@@ -107,6 +117,12 @@ st.markdown(
         .block-container {{ padding-top: 1.6rem; padding-bottom: 2rem; max-width: 1320px; }}
         .stApp {{ background: {theme["bg"]}; }}
         [data-testid="stSidebar"] {{ background: {theme["sidebar_bg"]}; border-right: 1px solid {theme["sidebar_border"]}; }}
+        [data-testid="stAppViewContainer"] {{
+            background-image:
+                linear-gradient(90deg, transparent 0%, transparent calc(100% - 1px), {theme["divider"]} calc(100% - 1px)),
+                linear-gradient(0deg, transparent 0%, transparent calc(100% - 1px), {theme["divider"]} calc(100% - 1px));
+            background-size: 32px 32px;
+        }}
         .hero-card, .panel-card, .metric-card, .result-card, .empty-card, .sentence-card {{
             border-radius: 20px;
             background: {theme["card_bg"]};
@@ -116,15 +132,66 @@ st.markdown(
             padding: 1.15rem 1.2rem;
             margin-bottom: 0.85rem;
         }}
-        .hero-card {{ padding: 2.1rem 2.2rem; margin-bottom: 1.15rem; }}
+        .hero-card {{
+            padding: 2.1rem 2.2rem;
+            margin-bottom: 1.15rem;
+            position: relative;
+            overflow: hidden;
+            background:
+                radial-gradient(circle at top right, {theme["accent_soft"]}, transparent 30%),
+                linear-gradient(135deg, {theme["card_bg"]} 0%, {theme["surface_alt"]} 100%);
+        }}
+        .hero-card::after {{
+            content: "§";
+            position: absolute;
+            right: 1.4rem;
+            top: 0.45rem;
+            font-size: 5rem;
+            color: {theme["accent_soft"]};
+            font-weight: 800;
+            line-height: 1;
+        }}
         .eyebrow {{ display: inline-block; padding: 0.5rem 0.9rem; border-radius: 999px; background: {theme["eyebrow_bg"]}; color: {theme["eyebrow_text"]}; font-size: 0.74rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; }}
         .hero-title {{ margin: 0.95rem 0 0.65rem; max-width: 820px; font-size: clamp(2.1rem, 3vw, 3.4rem); font-weight: 800; line-height: 1.05; color: {theme["title"]}; }}
         .hero-copy, .body-copy, .subtle-copy {{ color: {theme["muted"]}; line-height: 1.72; font-size: 0.98rem; }}
         .section-title {{ margin: 0; color: {theme["title"]}; font-size: 1.12rem; font-weight: 800; letter-spacing: 0.01em; }}
+        .section-title::before {{
+            content: "";
+            display: inline-block;
+            width: 22px;
+            height: 2px;
+            margin-right: 10px;
+            vertical-align: middle;
+            background: {theme["accent"]};
+            border-radius: 999px;
+        }}
         .metric-label {{ color: {theme["muted"]}; font-size: 0.9rem; margin-bottom: 0.5rem; }}
         .metric-value {{ font-size: 1.75rem; font-weight: 800; line-height: 1; color: {theme["metric"]}; }}
         .result-term {{ font-weight: 800; color: {theme["result"]}; }}
         .highlight-panel {{ padding: 1rem 1.1rem; border-radius: 16px; border: 1px solid {theme["highlight_border"]}; background: {theme["highlight_bg"]}; line-height: 1.78; color: {theme["highlight_text"]}; }}
+        .brand-card {{
+            padding: 1rem 1rem 0.9rem;
+            border-radius: 18px;
+            background: linear-gradient(145deg, {theme["surface_alt"]}, {theme["card_bg"]});
+            border: 1px solid {theme["card_border"]};
+            box-shadow: {theme["card_shadow"]};
+            margin-bottom: 0.9rem;
+        }}
+        .brand-mark {{
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: {theme["accent_soft"]};
+            color: {theme["accent"]};
+            font-size: 1.25rem;
+            font-weight: 800;
+            margin-bottom: 0.6rem;
+        }}
+        .brand-title {{ color: {theme["title"]}; font-weight: 800; font-size: 1rem; }}
+        .brand-copy {{ color: {theme["muted"]}; font-size: 0.9rem; line-height: 1.55; }}
         .high {{ color: #e11d48; background: rgba(225,29,72,0.12); }}
         .medium {{ color: #d97706; background: rgba(217,119,6,0.14); }}
         .low {{ color: #059669; background: rgba(5,150,105,0.14); }}
@@ -170,12 +237,28 @@ st.markdown(
         .stDownloadButton button, .stButton button[kind="primary"] {{ border-radius: 12px !important; }}
         .stSelectbox label, .stToggle label, .stFileUploader label {{ color: {theme["title"]} !important; }}
         .stDataFrame, .stTable {{ color: {theme["text"]}; }}
+        .stForm {{
+            padding: 1rem 1rem 0.2rem;
+            border-radius: 18px;
+            border: 1px solid {theme["card_border"]};
+            background: {theme["surface_alt"]};
+        }}
     </style>
     """,
     unsafe_allow_html=True,
 )
 
 with st.sidebar:
+    st.markdown(
+        """
+        <div class="brand-card">
+            <div class="brand-mark">⚖</div>
+            <div class="brand-title">Legal Review Console</div>
+            <div class="brand-copy">Contract analysis with a courtroom-inspired interface, structured for demos and professional review.</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
     st.markdown("### 🧭 Navigation Menu")
     nav_items = ["🏠 Home", "📊 Dashboard", "📝 Analyze Contract", "⚖️ Compare Contracts", "📈 Risk Report", "🕘 History", "⚙️ Settings / About"]
     for item in nav_items:
@@ -216,8 +299,8 @@ def render_home():
                 <div class='body-copy'>This application helps review contract language through risk scoring, highlighted terms, clause checks, file upload support, reporting, and history tracking.</div>
             </div>
             <div class='panel-card'>
-                <div class='section-title'>Key Features</div>
-                <div class='subtle-copy'>Risk score calculation, contract upload, highlighted analysis, downloadable reports, dashboard charts, and session history.</div>
+                <div class='section-title'>Chambers Overview</div>
+                <div class='subtle-copy'>Risk score calculation, clause-focused analysis, side-by-side comparison, downloadable reports, and matter history inside a legal-themed review workspace.</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -230,8 +313,8 @@ def render_home():
                 <div class='subtle-copy'>Hujjathullah</div>
             </div>
             <div class='panel-card'>
-                <div class='section-title'>Use This App</div>
-                <div class='subtle-copy'>Use Analyze Contract for pasted text or uploaded files, Compare Contracts to review changes, and Risk Report to export the latest result.</div>
+                <div class='section-title'>Case Flow</div>
+                <div class='subtle-copy'>Use Analyze Contract for pasted text or uploaded files, Compare Contracts to review differences, and Risk Report to export the latest legal summary.</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -329,10 +412,26 @@ def render_compare_contracts():
             st.warning("Add both contracts before comparing them.")
             return
         comparison = compare_contracts(base_text, revised_text)
+        st.markdown(
+            f"""
+            <div class='panel-card'>
+                <div class='section-title'>Safety Verdict</div>
+                <div class='result-term'>{html.escape(comparison['safer_contract'])}</div>
+                <div class='subtle-copy'>{html.escape(comparison['safety_reason'])}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
         c1, c2, c3 = st.columns(3)
         c1.markdown(f"<div class='metric-card'><div class='metric-label'>Similarity</div><div class='metric-value'>{comparison['similarity']}%</div></div>", unsafe_allow_html=True)
-        c2.markdown(f"<div class='metric-card'><div class='metric-label'>Base Score</div><div class='metric-value'>{comparison['base_score']}</div></div>", unsafe_allow_html=True)
-        c3.markdown(f"<div class='metric-card'><div class='metric-label'>Revised Score</div><div class='metric-value'>{comparison['compare_score']}</div></div>", unsafe_allow_html=True)
+        c2.markdown(
+            f"<div class='metric-card'><div class='metric-label'>Base Contract</div><div class='metric-value'>{comparison['base_score']}</div><div class='subtle-copy'>{html.escape(comparison['base_risk'])}</div></div>",
+            unsafe_allow_html=True,
+        )
+        c3.markdown(
+            f"<div class='metric-card'><div class='metric-label'>Revised Contract</div><div class='metric-value'>{comparison['compare_score']}</div><div class='subtle-copy'>{html.escape(comparison['compare_risk'])}</div></div>",
+            unsafe_allow_html=True,
+        )
 
         left_col, right_col = st.columns(2, gap="large")
         with left_col:
@@ -402,18 +501,20 @@ def render_settings_about():
             unsafe_allow_html=True,
         )
         st.markdown("<div class='panel-card'><div class='section-title'>Report a Problem</div></div>", unsafe_allow_html=True)
-        issue_type = st.selectbox(
-            "Issue Type",
-            ["UI issue", "Analysis problem", "Report download issue", "Performance issue", "Other"],
-            key="issue_type",
-        )
-        issue_details = st.text_area(
-            "Describe the problem",
-            height=140,
-            key="issue_details",
-            placeholder="Describe what went wrong, where you saw it, and what you expected instead...",
-        )
-        if st.button("Submit Problem Report", use_container_width=True):
+        with st.form("problem_report_form", clear_on_submit=True):
+            issue_type = st.selectbox(
+                "Issue Type",
+                ["UI issue", "Analysis problem", "Report download issue", "Performance issue", "Other"],
+                key="issue_type",
+            )
+            issue_details = st.text_area(
+                "Describe the problem",
+                height=140,
+                key="issue_details",
+                placeholder="Describe what went wrong, where you saw it, and what you expected instead...",
+            )
+            submitted = st.form_submit_button("Submit Problem Report", use_container_width=True)
+        if submitted:
             if not issue_details.strip():
                 st.warning("Please describe the problem before submitting.")
             else:
@@ -424,7 +525,6 @@ def render_settings_about():
                         "details": issue_details.strip(),
                     },
                 )
-                st.session_state["issue_details"] = ""
                 st.success("Problem report saved in this session.")
     with right:
         st.markdown(
