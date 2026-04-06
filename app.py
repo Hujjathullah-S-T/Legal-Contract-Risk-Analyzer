@@ -5,6 +5,7 @@ import pandas as pd
 import streamlit as st
 from analyzer_core import (
     ROLE_DESCRIPTIONS,
+    compare_contracts,
     highlight_risk_terms,
     read_uploaded_file,
     role_based_summary,
@@ -36,63 +37,66 @@ st.session_state.setdefault("uploaded_contract_text", "")
 st.session_state.setdefault("uploaded_contract_name", "Uploaded Contract")
 st.session_state.setdefault("current_page", "🏠 Home")
 st.session_state.setdefault("theme_mode", "Dark")
+st.session_state.setdefault("reported_issues", [])
 
 theme_mode = st.session_state.get("theme_mode", "Dark")
 if theme_mode == "Light":
     theme = {
-        "text": "#0f172a",
-        "bg": "radial-gradient(circle at top left, rgba(14, 165, 233, 0.10), transparent 24%), radial-gradient(circle at top right, rgba(16, 185, 129, 0.10), transparent 24%), linear-gradient(135deg, #f7fbff 0%, #edf6ff 46%, #eefaf6 100%)",
-        "sidebar_bg": "linear-gradient(180deg, #eef6fb 0%, #e2eef7 100%)",
-        "sidebar_border": "rgba(148, 163, 184, 0.18)",
-        "card_bg": "rgba(255, 255, 255, 0.88)",
-        "card_border": "rgba(148, 163, 184, 0.18)",
-        "card_shadow": "0 18px 40px rgba(148, 163, 184, 0.18)",
-        "eyebrow_bg": "rgba(14, 165, 233, 0.12)",
-        "eyebrow_text": "#0369a1",
-        "title": "#0f172a",
-        "muted": "#475569",
-        "metric": "#0891b2",
-        "result": "#0f172a",
-        "highlight_bg": "rgba(255,255,255,0.96)",
-        "highlight_border": "rgba(148,163,184,0.18)",
-        "highlight_text": "#0f172a",
-        "nav_caption": "#475569",
-        "button_bg": "rgba(255,255,255,0.72)",
-        "button_text": "#0f172a",
-        "button_hover_bg": "rgba(14, 165, 233, 0.10)",
+        "text": "#1f2937",
+        "bg": "radial-gradient(circle at top left, rgba(180, 83, 9, 0.10), transparent 24%), radial-gradient(circle at top right, rgba(12, 74, 110, 0.08), transparent 24%), linear-gradient(135deg, #f8f4ea 0%, #f5efe2 48%, #fcfaf5 100%)",
+        "sidebar_bg": "linear-gradient(180deg, #efe6d4 0%, #f7f2e7 100%)",
+        "sidebar_border": "rgba(120, 113, 108, 0.18)",
+        "card_bg": "rgba(255, 252, 246, 0.92)",
+        "card_border": "rgba(120, 113, 108, 0.14)",
+        "card_shadow": "0 18px 34px rgba(120, 113, 108, 0.14)",
+        "eyebrow_bg": "rgba(180, 83, 9, 0.10)",
+        "eyebrow_text": "#92400e",
+        "title": "#1f2937",
+        "muted": "#57534e",
+        "metric": "#0f766e",
+        "result": "#111827",
+        "highlight_bg": "rgba(255,252,246,0.98)",
+        "highlight_border": "rgba(120,113,108,0.16)",
+        "highlight_text": "#1f2937",
+        "nav_caption": "#57534e",
+        "button_bg": "rgba(255, 250, 240, 0.86)",
+        "button_text": "#1f2937",
+        "button_hover_bg": "rgba(180, 83, 9, 0.10)",
+        "button_hover_text": "#111827",
         "input_bg": "rgba(255,255,255,0.92)",
-        "input_text": "#0f172a",
-        "input_border": "rgba(148,163,184,0.20)",
-        "file_bg": "rgba(255,255,255,0.72)",
-        "primary_label": "Professional light workspace",
+        "input_text": "#1f2937",
+        "input_border": "rgba(120,113,108,0.20)",
+        "file_bg": "rgba(255,250,240,0.78)",
+        "primary_label": "Professional legal light workspace",
     }
 else:
     theme = {
         "text": "#e5eef9",
-        "bg": "radial-gradient(circle at top left, rgba(14, 165, 233, 0.10), transparent 24%), radial-gradient(circle at top right, rgba(16, 185, 129, 0.10), transparent 24%), linear-gradient(135deg, #071018 0%, #0b1722 46%, #101b27 100%)",
-        "sidebar_bg": "linear-gradient(180deg, #08141c 0%, #0f1b27 100%)",
+        "bg": "radial-gradient(circle at top left, rgba(180, 83, 9, 0.14), transparent 24%), radial-gradient(circle at top right, rgba(250, 204, 21, 0.08), transparent 18%), linear-gradient(135deg, #0b1220 0%, #111827 42%, #1a2234 100%)",
+        "sidebar_bg": "linear-gradient(180deg, #0b1120 0%, #141b2d 100%)",
         "sidebar_border": "rgba(148, 163, 184, 0.10)",
-        "card_bg": "rgba(15, 23, 42, 0.74)",
-        "card_border": "rgba(148, 163, 184, 0.12)",
-        "card_shadow": "0 18px 40px rgba(2, 6, 23, 0.24)",
-        "eyebrow_bg": "rgba(14, 165, 233, 0.12)",
-        "eyebrow_text": "#7dd3fc",
+        "card_bg": "rgba(17, 24, 39, 0.78)",
+        "card_border": "rgba(212, 175, 55, 0.12)",
+        "card_shadow": "0 18px 40px rgba(2, 6, 23, 0.28)",
+        "eyebrow_bg": "rgba(212, 175, 55, 0.12)",
+        "eyebrow_text": "#f6c453",
         "title": "#f8fafc",
         "muted": "#94a3b8",
-        "metric": "#67e8f9",
+        "metric": "#f6c453",
         "result": "#f8fafc",
         "highlight_bg": "rgba(15,23,42,0.94)",
-        "highlight_border": "rgba(148,163,184,0.12)",
+        "highlight_border": "rgba(212,175,55,0.12)",
         "highlight_text": "#e2e8f0",
         "nav_caption": "#94a3b8",
-        "button_bg": "rgba(15, 23, 42, 0.54)",
+        "button_bg": "rgba(17, 24, 39, 0.64)",
         "button_text": "#e2e8f0",
-        "button_hover_bg": "rgba(14, 165, 233, 0.14)",
+        "button_hover_bg": "rgba(212, 175, 55, 0.12)",
+        "button_hover_text": "#ffffff",
         "input_bg": "rgba(15, 23, 42, 0.82)",
         "input_text": "#e2e8f0",
-        "input_border": "rgba(148, 163, 184, 0.16)",
+        "input_border": "rgba(212, 175, 55, 0.16)",
         "file_bg": "rgba(15, 23, 42, 0.54)",
-        "primary_label": "Professional dark workspace",
+        "primary_label": "Professional legal dark workspace",
     }
 
 st.markdown(
@@ -121,9 +125,9 @@ st.markdown(
         .metric-value {{ font-size: 1.75rem; font-weight: 800; line-height: 1; color: {theme["metric"]}; }}
         .result-term {{ font-weight: 800; color: {theme["result"]}; }}
         .highlight-panel {{ padding: 1rem 1.1rem; border-radius: 16px; border: 1px solid {theme["highlight_border"]}; background: {theme["highlight_bg"]}; line-height: 1.78; color: {theme["highlight_text"]}; }}
-        .high {{ color: #fb7185; background: rgba(251,113,133,0.14); }}
-        .medium {{ color: #fbbf24; background: rgba(251,191,36,0.16); }}
-        .low {{ color: #34d399; background: rgba(52,211,153,0.15); }}
+        .high {{ color: #e11d48; background: rgba(225,29,72,0.12); }}
+        .medium {{ color: #d97706; background: rgba(217,119,6,0.14); }}
+        .low {{ color: #059669; background: rgba(5,150,105,0.14); }}
         .status-banner {{ border-radius: 18px; padding: 1.15rem 1.2rem; color: white; margin-bottom: 0.9rem; }}
         .status-banner.high {{ background: linear-gradient(135deg, #9f1239, #e11d48, #fb7185); }}
         .status-banner.medium {{ background: linear-gradient(135deg, #a16207, #f59e0b, #fbbf24); }}
@@ -145,16 +149,27 @@ st.markdown(
             margin-bottom: 0.3rem;
             box-shadow: none;
         }}
-        [data-testid="stSidebar"] .stButton > button:hover {{ border-color: rgba(125, 211, 252, 0.28); background: {theme["button_hover_bg"]}; color: #ffffff; }}
+        [data-testid="stSidebar"] .stButton > button:hover {{ border-color: rgba(125, 211, 252, 0.28); background: {theme["button_hover_bg"]}; color: {theme["button_hover_text"]}; }}
         .stTextArea textarea, .stTextInput input {{
             background: {theme["input_bg"]} !important;
             color: {theme["input_text"]} !important;
             border: 1px solid {theme["input_border"]} !important;
             border-radius: 14px !important;
         }}
+        .stSelectbox div[data-baseweb="select"] > div,
+        .stSelectbox div[role="combobox"],
+        .stMultiSelect div[data-baseweb="select"] > div,
+        .stFileUploader small,
+        .stCaption,
+        [data-testid="stMarkdownContainer"] p,
+        [data-testid="stMarkdownContainer"] li {{
+            color: {theme["text"]} !important;
+        }}
         .stTextArea textarea:focus, .stTextInput input:focus {{ border-color: rgba(125, 211, 252, 0.4) !important; box-shadow: 0 0 0 1px rgba(125, 211, 252, 0.22) !important; }}
         .stFileUploader {{ background: {theme["file_bg"]}; border-radius: 16px; border: 1px dashed rgba(148, 163, 184, 0.2); padding: 0.75rem 0.9rem; }}
         .stDownloadButton button, .stButton button[kind="primary"] {{ border-radius: 12px !important; }}
+        .stSelectbox label, .stToggle label, .stFileUploader label {{ color: {theme["title"]} !important; }}
+        .stDataFrame, .stTable {{ color: {theme["text"]}; }}
     </style>
     """,
     unsafe_allow_html=True,
@@ -162,7 +177,7 @@ st.markdown(
 
 with st.sidebar:
     st.markdown("### 🧭 Navigation Menu")
-    nav_items = ["🏠 Home", "📊 Dashboard", "📝 Analyze Contract", "📁 Upload File", "📈 Risk Report", "🕘 History", "⚙️ Settings / About"]
+    nav_items = ["🏠 Home", "📊 Dashboard", "📝 Analyze Contract", "⚖️ Compare Contracts", "📈 Risk Report", "🕘 History", "⚙️ Settings / About"]
     for item in nav_items:
         label = f"• {item}" if st.session_state.get("current_page") == item else item
         if st.button(label, key=f"nav_{item}", use_container_width=True):
@@ -216,7 +231,7 @@ def render_home():
             </div>
             <div class='panel-card'>
                 <div class='section-title'>Use This App</div>
-                <div class='subtle-copy'>Go to Analyze Contract to paste text, Upload File to process documents, and Risk Report to export the latest result.</div>
+                <div class='subtle-copy'>Use Analyze Contract for pasted text or uploaded files, Compare Contracts to review changes, and Risk Report to export the latest result.</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -249,11 +264,22 @@ def render_dashboard():
             for item in history[:5]:
                 st.markdown(f"<div class='result-card'><div class='result-term'>{html.escape(item['File Name'])}</div><div class='subtle-copy'>{item['Date']} · {item['Risk Level']} · Score {item['Risk Score']}</div></div>", unsafe_allow_html=True)
         else:
-            st.markdown("<div class='empty-card'>No analyses yet. Use Analyze Contract or Upload File to begin.</div>", unsafe_allow_html=True)
+            st.markdown("<div class='empty-card'>No analyses yet. Use Analyze Contract to begin, then review outcomes here.</div>", unsafe_allow_html=True)
 
 
 def render_analyze_contract():
     st.markdown("<div class='panel-card'><div class='section-title'>Analyze Contract</div></div>", unsafe_allow_html=True)
+    uploaded_file = st.file_uploader("Upload Contract File", type=["pdf", "docx", "txt"], key="inline_upload")
+    if uploaded_file is not None:
+        extracted_text = read_uploaded_file(uploaded_file)
+        st.session_state["uploaded_contract_text"] = extracted_text
+        st.session_state["uploaded_contract_name"] = uploaded_file.name
+        if extracted_text.strip():
+            st.session_state["contract_text"] = extracted_text
+            st.markdown("<div class='card-grid-title'>Extracted Text Preview</div>", unsafe_allow_html=True)
+            st.text_area("Preview", extracted_text, height=180, key="inline_preview")
+        else:
+            st.warning("No readable text was extracted from the file.")
     contract_text = st.text_area("Paste Contract Text", value=st.session_state.get("contract_text", ""), height=300, placeholder="Paste the full contract text here...")
     st.session_state["contract_text"] = contract_text
     if st.button("Analyze Contract", type="primary", use_container_width=True):
@@ -261,7 +287,8 @@ def render_analyze_contract():
             st.warning("Paste some contract text first.")
         else:
             with st.spinner("Analyzing contract..."):
-                result = run_full_analysis(contract_text, "Pasted Contract")
+                source_name = st.session_state.get("uploaded_contract_name") if uploaded_file is not None else "Pasted Contract"
+                result = run_full_analysis(contract_text, source_name)
                 store_analysis(result)
                 st.success("Analysis completed successfully.")
                 st.progress(min(result["summary"]["overall_score"], 100) / 100)
@@ -279,23 +306,43 @@ def render_analyze_contract():
             st.markdown(f"<div class='panel-card'><div class='section-title'>Executive Explanation</div><div class='subtle-copy'>{html.escape(role_based_summary(selected_role, summary, findings))}</div></div>", unsafe_allow_html=True)
 
 
-def render_upload_file():
-    st.markdown("<div class='panel-card'><div class='section-title'>Upload File</div></div>", unsafe_allow_html=True)
-    uploaded_file = st.file_uploader("Upload PDF / DOCX / TXT", type=["pdf", "docx", "txt"], key="page_upload")
-    if uploaded_file is not None:
-        extracted_text = read_uploaded_file(uploaded_file)
-        st.session_state["uploaded_contract_text"] = extracted_text
-        st.session_state["uploaded_contract_name"] = uploaded_file.name
-        st.markdown("<div class='card-grid-title'>Extracted Text Preview</div>", unsafe_allow_html=True)
-        st.text_area("Preview", extracted_text, height=260)
-        if st.button("Analyze Uploaded Contract", use_container_width=True, type="primary"):
-            if extracted_text.strip():
-                with st.spinner("Analyzing contract..."):
-                    result = run_full_analysis(extracted_text, uploaded_file.name)
-                    store_analysis(result)
-                    st.success(f"Analysis saved for {uploaded_file.name}.")
-            else:
-                st.warning("No readable text was extracted from the file.")
+def render_compare_contracts():
+    st.markdown("<div class='panel-card'><div class='section-title'>Compare Contracts</div></div>", unsafe_allow_html=True)
+    left, right = st.columns(2, gap="large")
+    with left:
+        base_upload = st.file_uploader("Upload Base Contract", type=["pdf", "docx", "txt"], key="base_upload")
+        if base_upload is not None:
+            base_extracted = read_uploaded_file(base_upload)
+            if base_extracted.strip():
+                st.session_state["base_contract"] = base_extracted
+        base_text = st.text_area("Base Contract", height=260, key="base_contract")
+    with right:
+        revised_upload = st.file_uploader("Upload Revised Contract", type=["pdf", "docx", "txt"], key="revised_upload")
+        if revised_upload is not None:
+            revised_extracted = read_uploaded_file(revised_upload)
+            if revised_extracted.strip():
+                st.session_state["revised_contract"] = revised_extracted
+        revised_text = st.text_area("Revised Contract", height=260, key="revised_contract")
+
+    if st.button("Compare Two Contracts", type="primary", use_container_width=True):
+        if not base_text.strip() or not revised_text.strip():
+            st.warning("Add both contracts before comparing them.")
+            return
+        comparison = compare_contracts(base_text, revised_text)
+        c1, c2, c3 = st.columns(3)
+        c1.markdown(f"<div class='metric-card'><div class='metric-label'>Similarity</div><div class='metric-value'>{comparison['similarity']}%</div></div>", unsafe_allow_html=True)
+        c2.markdown(f"<div class='metric-card'><div class='metric-label'>Base Score</div><div class='metric-value'>{comparison['base_score']}</div></div>", unsafe_allow_html=True)
+        c3.markdown(f"<div class='metric-card'><div class='metric-label'>Revised Score</div><div class='metric-value'>{comparison['compare_score']}</div></div>", unsafe_allow_html=True)
+
+        left_col, right_col = st.columns(2, gap="large")
+        with left_col:
+            st.markdown("<div class='panel-card'><div class='section-title'>Added Risks</div></div>", unsafe_allow_html=True)
+            for item in comparison["added_risks"] or ["No new risky terms"]:
+                st.markdown(f"<div class='result-card'>{html.escape(item)}</div>", unsafe_allow_html=True)
+        with right_col:
+            st.markdown("<div class='panel-card'><div class='section-title'>Removed Risks</div></div>", unsafe_allow_html=True)
+            for item in comparison["removed_risks"] or ["No removed risky terms"]:
+                st.markdown(f"<div class='result-card'>{html.escape(item)}</div>", unsafe_allow_html=True)
 
 
 def render_risk_report():
@@ -354,6 +401,31 @@ def render_settings_about():
             """,
             unsafe_allow_html=True,
         )
+        st.markdown("<div class='panel-card'><div class='section-title'>Report a Problem</div></div>", unsafe_allow_html=True)
+        issue_type = st.selectbox(
+            "Issue Type",
+            ["UI issue", "Analysis problem", "Report download issue", "Performance issue", "Other"],
+            key="issue_type",
+        )
+        issue_details = st.text_area(
+            "Describe the problem",
+            height=140,
+            key="issue_details",
+            placeholder="Describe what went wrong, where you saw it, and what you expected instead...",
+        )
+        if st.button("Submit Problem Report", use_container_width=True):
+            if not issue_details.strip():
+                st.warning("Please describe the problem before submitting.")
+            else:
+                st.session_state["reported_issues"].insert(
+                    0,
+                    {
+                        "type": issue_type,
+                        "details": issue_details.strip(),
+                    },
+                )
+                st.session_state["issue_details"] = ""
+                st.success("Problem report saved in this session.")
     with right:
         st.markdown(
             """
@@ -368,6 +440,25 @@ def render_settings_about():
             """,
             unsafe_allow_html=True,
         )
+        st.markdown("<div class='panel-card'><div class='section-title'>Download Report</div></div>", unsafe_allow_html=True)
+        if latest_result:
+            st.download_button(
+                "Download Latest Risk Report (PDF)",
+                latest_result["pdf_report"],
+                file_name="contract_risk_report.pdf",
+                mime="application/pdf",
+                use_container_width=True,
+                key="settings_download_report",
+            )
+        else:
+            st.info("Run an analysis first to enable report download.")
+        if st.session_state["reported_issues"]:
+            st.markdown("<div class='panel-card'><div class='section-title'>Recent Problem Reports</div></div>", unsafe_allow_html=True)
+            for issue in st.session_state["reported_issues"][:3]:
+                st.markdown(
+                    f"<div class='result-card'><div class='result-term'>{html.escape(issue['type'])}</div><div class='subtle-copy'>{html.escape(issue['details'])}</div></div>",
+                    unsafe_allow_html=True,
+                )
 
 
 if current_page == "🏠 Home":
@@ -376,8 +467,8 @@ elif current_page == "📊 Dashboard":
     render_dashboard()
 elif current_page == "📝 Analyze Contract":
     render_analyze_contract()
-elif current_page == "📁 Upload File":
-    render_upload_file()
+elif current_page == "⚖️ Compare Contracts":
+    render_compare_contracts()
 elif current_page == "📈 Risk Report":
     render_risk_report()
 elif current_page == "🕘 History":
