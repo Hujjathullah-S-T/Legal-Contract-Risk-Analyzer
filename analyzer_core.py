@@ -468,6 +468,63 @@ def answer_question(question, text, entities, obligations, findings):
     return "I could not find a direct answer in the contract text. Try asking about payment, liability, termination, or dates."
 
 
+def revise_contract_to_lower_risk(text, summary, findings):
+    revised_text = text or ""
+    replacement_map = {
+        "unlimited liability": "financial responsibility is capped at the total contract value for proven direct loss",
+        "terminate immediately": "terminate after a 30-day cure period",
+        "penalty": "reasonable liquidated damages",
+        "exclusive jurisdiction": "mutually agreed dispute resolution forum",
+        "indemnify": "cover proven third-party claims caused by material non-compliance after cure",
+        "liability": "financial responsibility",
+        "damages": "direct loss",
+        "breach": "material non-compliance after cure",
+        "default": "material non-compliance after notice",
+        "reasonable efforts": "commercially reasonable efforts measured against agreed service levels",
+        "best effort": "specific performance obligations with measurable timelines",
+        "best efforts": "specific performance obligations with measurable timelines",
+        "as soon as possible": "within 5 business days",
+        "promptly": "within 3 business days",
+        "may": "shall",
+        "should": "shall",
+    }
+    for term in sorted(replacement_map, key=len, reverse=True):
+        revised_text = re.sub(rf"\b{re.escape(term)}\b", replacement_map[term], revised_text, flags=re.IGNORECASE)
+
+    existing_clauses = {item["clause"] for item in summary["clauses"]}
+    additions = []
+    if "Termination Clause" not in existing_clauses:
+        additions.append("Termination: Either party may terminate this agreement by giving 30 days written notice and allowing a cure period for material breach.")
+    if "Dispute Resolution Clause" not in existing_clauses:
+        additions.append("Dispute Resolution: Any dispute shall first be negotiated in good faith and, if unresolved, submitted to arbitration in a mutually agreed venue.")
+    if additions:
+        revised_text = f"{revised_text.strip()} {' '.join(additions)}".strip()
+
+    revised_result = run_full_analysis(revised_text, "Safer Revised Contract")
+    changes = []
+    for finding in findings:
+        if finding["term"] in replacement_map:
+            changes.append(
+                {
+                    "term": finding["term"],
+                    "replacement": replacement_map[finding["term"]],
+                }
+            )
+    for clause in summary["missing_clauses"]:
+        if clause in {"Termination Clause", "Dispute Resolution Clause"}:
+            changes.append(
+                {
+                    "term": clause,
+                    "replacement": f"Added a drafted {clause.lower()} to improve contract coverage.",
+                }
+            )
+    return {
+        "revised_text": revised_text,
+        "revised_result": revised_result,
+        "changes": changes,
+    }
+
+
 def compare_contracts(base_text, compare_text):
     base_findings = analyze_text(base_text)
     compare_findings = analyze_text(compare_text)

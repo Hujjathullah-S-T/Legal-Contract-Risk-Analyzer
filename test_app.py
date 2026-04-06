@@ -3,11 +3,13 @@ import unittest
 from analyzer_core import (
     analyze_sentences,
     analyze_text,
+    answer_question,
     build_summary,
     compare_contracts,
     detect_clause_dependencies,
     detect_sensitive_data,
     mask_sensitive_data,
+    revise_contract_to_lower_risk,
     run_full_analysis,
 )
 
@@ -81,6 +83,28 @@ class ContractAnalyzerTests(unittest.TestCase):
         revised_text = "Either party may terminate immediately upon breach and unlimited liability shall apply."
         comparison = compare_contracts(base_text, revised_text)
         self.assertTrue(any(item["change"] == "Worsened" for item in comparison["clause_changes"]))
+
+    def test_contract_question_answering_returns_payment_answer(self):
+        text = "The Client shall pay INR 5000 within 15 days of invoice."
+        result = run_full_analysis(text, "payment")
+        answer = answer_question(
+            "What is the payment amount?",
+            text,
+            result["summary"]["entities"],
+            result["summary"]["obligations"],
+            result["findings"],
+        )
+        self.assertIn("INR 5000", answer)
+
+    def test_reviser_reduces_score_for_risky_contract(self):
+        text = "Either party may terminate immediately upon breach and unlimited liability shall apply."
+        result = run_full_analysis(text, "risky")
+        revised_package = revise_contract_to_lower_risk(text, result["summary"], result["findings"])
+        self.assertLessEqual(
+            revised_package["revised_result"]["summary"]["overall_score"],
+            result["summary"]["overall_score"],
+        )
+        self.assertTrue(revised_package["revised_text"])
 
 
 if __name__ == "__main__":
