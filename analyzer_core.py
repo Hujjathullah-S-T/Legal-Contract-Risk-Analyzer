@@ -102,6 +102,46 @@ QUESTION_TOPICS = {
     "privacy": ["privacy", "personal data", "gdpr", "consent"],
 }
 
+QUESTION_STOPWORDS = {
+    "the",
+    "a",
+    "an",
+    "is",
+    "are",
+    "was",
+    "were",
+    "what",
+    "when",
+    "where",
+    "who",
+    "which",
+    "why",
+    "how",
+    "does",
+    "do",
+    "did",
+    "can",
+    "could",
+    "should",
+    "would",
+    "in",
+    "on",
+    "at",
+    "for",
+    "to",
+    "of",
+    "about",
+    "this",
+    "that",
+    "it",
+    "there",
+    "any",
+    "under",
+    "with",
+    "from",
+    "be",
+}
+
 ROLE_DESCRIPTIONS = {
     "Lawyer": "Detailed legal signals, clause intelligence, and sentence-level reasoning.",
     "Client": "Plain-language explanation with practical concerns and missing safeguards.",
@@ -115,6 +155,10 @@ def contains_term(text, term):
 
 def normalize_text(text):
     return re.sub(r"\s+", " ", text or "").strip()
+
+
+def tokenize_text(text):
+    return [token for token in re.findall(r"[a-zA-Z0-9]+", (text or "").lower()) if token not in QUESTION_STOPWORDS]
 
 
 def split_sentences(text):
@@ -443,25 +487,61 @@ def build_recommendations(findings, ambiguity_findings, missing_clauses):
 
 def answer_question(question, text, entities, obligations, findings):
     question_lower = question.lower().strip()
+    sentences = split_sentences(text)
     if not question_lower:
         return "Ask a question about payment, liability, termination, confidentiality, dates, or parties."
+
+    def best_matching_sentence(preferred_keywords=None):
+        preferred_keywords = preferred_keywords or []
+        question_tokens = set(tokenize_text(question_lower))
+        ranked = []
+        for sentence in sentences:
+            sentence_lower = sentence.lower()
+            sentence_tokens = set(tokenize_text(sentence))
+            score = len(question_tokens & sentence_tokens) * 4
+            score += sum(5 for keyword in preferred_keywords if contains_term(sentence, keyword))
+            if "who" in question_lower and re.search(r"\b(shall|must|will|agrees to|is required to)\b", sentence_lower):
+                score += 4
+            if ("when" in question_lower or "date" in question_lower) and re.search(r"\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b|\b(?:jan|january|feb|february|mar|march|apr|april|may|jun|june|jul|july|aug|august|sep|sept|september|oct|october|nov|november|dec|december)\b", sentence_lower):
+                score += 5
+            if ("amount" in question_lower or "payment" in question_lower or "money" in question_lower) and re.search(r"(₹|rs\.?|inr|\$|usd|€|eur)\s?\d", sentence_lower, flags=re.IGNORECASE):
+                score += 6
+            if score > 0:
+                ranked.append((score, sentence))
+        if not ranked:
+            return None
+        return sorted(ranked, key=lambda item: (item[0], len(item[1])), reverse=True)[0][1]
+
     if "who" in question_lower and obligations:
+        for obligation in obligations:
+            subject_lower = obligation["subject"].lower()
+            if subject_lower in question_lower:
+                return f"{obligation['subject']} is obligated to {obligation['action'].lower()} {obligation['object']}."
         first = obligations[0]
         return f"{first['subject']} is obligated to {first['action'].lower()} {first['object']}."
     if "date" in question_lower or "when" in question_lower:
         if entities["Dates"]:
+            matched_sentence = best_matching_sentence(["date", "term", "start", "end", "effective", "payment", "termination"])
+            if matched_sentence:
+                return matched_sentence
             return f"Detected date references: {', '.join(entities['Dates'][:3])}."
     if "party" in question_lower or "parties" in question_lower:
         if entities["Parties"]:
             return f"Detected parties: {', '.join(entities['Parties'][:5])}."
     if "money" in question_lower or "amount" in question_lower or "payment" in question_lower:
         if entities["Money Values"]:
+            matched_sentence = best_matching_sentence(["pay", "payment", "invoice", "fee", "amount"])
+            if matched_sentence:
+                return matched_sentence
             return f"Detected money values: {', '.join(entities['Money Values'][:3])}."
     for topic, keywords in QUESTION_TOPICS.items():
         if topic in question_lower or any(keyword in question_lower for keyword in keywords):
-            for sentence in split_sentences(text):
-                if any(contains_term(sentence, keyword) for keyword in keywords):
-                    return sentence
+            matched_sentence = best_matching_sentence(keywords)
+            if matched_sentence:
+                return matched_sentence
+    matched_sentence = best_matching_sentence()
+    if matched_sentence:
+        return matched_sentence
     if findings:
         strongest = sorted(findings, key=lambda item: level_priority(item["level"]))[0]
         return f"The strongest detected risk is '{strongest['term']}' under {strongest['level']}. {strongest['explanation']}"

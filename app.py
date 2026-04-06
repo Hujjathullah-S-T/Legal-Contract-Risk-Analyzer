@@ -86,69 +86,69 @@ st.session_state.setdefault("revised_contract_package", None)
 theme_mode = st.session_state.get("theme_mode", "Dark")
 if theme_mode == "Light":
     theme = {
-        "text": "#1f2937",
-        "bg": "radial-gradient(circle at 12% 14%, rgba(180, 83, 9, 0.16), transparent 18%), radial-gradient(circle at 88% 12%, rgba(12, 74, 110, 0.12), transparent 18%), linear-gradient(135deg, #f8f3e7 0%, #f3ebdc 46%, #fcfaf5 100%)",
-        "sidebar_bg": "linear-gradient(180deg, #efe6d4 0%, #f7f2e7 100%)",
-        "sidebar_border": "rgba(120, 113, 108, 0.18)",
-        "card_bg": "rgba(255, 252, 246, 0.92)",
-        "card_border": "rgba(120, 113, 108, 0.14)",
-        "card_shadow": "0 18px 34px rgba(120, 113, 108, 0.14)",
-        "eyebrow_bg": "rgba(180, 83, 9, 0.10)",
-        "eyebrow_text": "#92400e",
-        "title": "#1f2937",
-        "muted": "#57534e",
-        "metric": "#0f766e",
-        "result": "#111827",
-        "highlight_bg": "rgba(255,252,246,0.98)",
-        "highlight_border": "rgba(120,113,108,0.16)",
-        "highlight_text": "#1f2937",
-        "nav_caption": "#57534e",
-        "button_bg": "rgba(255, 250, 240, 0.86)",
-        "button_text": "#1f2937",
-        "button_hover_bg": "rgba(180, 83, 9, 0.10)",
-        "button_hover_text": "#111827",
-        "input_bg": "rgba(255,255,255,0.92)",
-        "input_text": "#1f2937",
-        "input_border": "rgba(120,113,108,0.20)",
-        "file_bg": "rgba(255,250,240,0.78)",
-        "accent": "#8b5e34",
-        "accent_soft": "rgba(139, 94, 52, 0.10)",
-        "surface_alt": "rgba(255, 247, 233, 0.86)",
-        "divider": "rgba(139, 94, 52, 0.14)",
-        "primary_label": "Professional legal light workspace",
+        "text": "#1d2430",
+        "bg": "radial-gradient(circle at 8% 10%, rgba(168, 85, 24, 0.18), transparent 20%), radial-gradient(circle at 88% 14%, rgba(14, 116, 144, 0.12), transparent 22%), linear-gradient(135deg, #f7f1e4 0%, #efe2c7 42%, #fbf7ef 100%)",
+        "sidebar_bg": "linear-gradient(180deg, #2c2118 0%, #443126 100%)",
+        "sidebar_border": "rgba(124, 95, 67, 0.24)",
+        "card_bg": "linear-gradient(180deg, rgba(255, 251, 242, 0.96) 0%, rgba(250, 242, 226, 0.94) 100%)",
+        "card_border": "rgba(124, 95, 67, 0.18)",
+        "card_shadow": "0 20px 38px rgba(101, 78, 57, 0.16)",
+        "eyebrow_bg": "rgba(140, 89, 44, 0.12)",
+        "eyebrow_text": "#8b5a2b",
+        "title": "#1b2330",
+        "muted": "#5f5649",
+        "metric": "#0f6b73",
+        "result": "#1b2330",
+        "highlight_bg": "linear-gradient(180deg, rgba(255,248,236,0.98) 0%, rgba(255,252,246,0.98) 100%)",
+        "highlight_border": "rgba(124, 95, 67, 0.18)",
+        "highlight_text": "#1d2430",
+        "nav_caption": "#eadfcb",
+        "button_bg": "rgba(255, 247, 231, 0.08)",
+        "button_text": "#f8efe0",
+        "button_hover_bg": "linear-gradient(90deg, rgba(196, 144, 88, 0.22) 0%, rgba(230, 197, 156, 0.10) 100%)",
+        "button_hover_text": "#fff8ef",
+        "input_bg": "rgba(255, 255, 252, 0.96)",
+        "input_text": "#1d2430",
+        "input_border": "rgba(124, 95, 67, 0.24)",
+        "file_bg": "rgba(255, 249, 239, 0.82)",
+        "accent": "#9a6a3a",
+        "accent_soft": "rgba(154, 106, 58, 0.12)",
+        "surface_alt": "rgba(247, 236, 214, 0.92)",
+        "divider": "rgba(154, 106, 58, 0.10)",
+        "primary_label": "Dossier-inspired light mode",
     }
 else:
     theme = {
-        "text": "#e5eef9",
-        "bg": "radial-gradient(circle at 10% 12%, rgba(180, 83, 9, 0.18), transparent 18%), radial-gradient(circle at 86% 10%, rgba(212, 175, 55, 0.12), transparent 18%), linear-gradient(135deg, #09111d 0%, #111827 42%, #172235 100%)",
-        "sidebar_bg": "linear-gradient(180deg, #0b1120 0%, #141b2d 100%)",
-        "sidebar_border": "rgba(148, 163, 184, 0.10)",
-        "card_bg": "rgba(17, 24, 39, 0.78)",
-        "card_border": "rgba(212, 175, 55, 0.12)",
-        "card_shadow": "0 18px 40px rgba(2, 6, 23, 0.28)",
-        "eyebrow_bg": "rgba(212, 175, 55, 0.12)",
-        "eyebrow_text": "#f6c453",
-        "title": "#f8fafc",
-        "muted": "#94a3b8",
-        "metric": "#f6c453",
-        "result": "#f8fafc",
-        "highlight_bg": "rgba(15,23,42,0.94)",
-        "highlight_border": "rgba(212,175,55,0.12)",
-        "highlight_text": "#e2e8f0",
-        "nav_caption": "#94a3b8",
-        "button_bg": "rgba(17, 24, 39, 0.64)",
-        "button_text": "#e2e8f0",
-        "button_hover_bg": "rgba(212, 175, 55, 0.12)",
-        "button_hover_text": "#ffffff",
-        "input_bg": "rgba(15, 23, 42, 0.82)",
-        "input_text": "#e2e8f0",
-        "input_border": "rgba(212, 175, 55, 0.16)",
-        "file_bg": "rgba(15, 23, 42, 0.54)",
-        "accent": "#d4af37",
-        "accent_soft": "rgba(212, 175, 55, 0.10)",
-        "surface_alt": "rgba(22, 31, 49, 0.72)",
-        "divider": "rgba(212, 175, 55, 0.12)",
-        "primary_label": "Professional legal dark workspace",
+        "text": "#e7ecf4",
+        "bg": "radial-gradient(circle at 10% 12%, rgba(192, 132, 47, 0.18), transparent 18%), radial-gradient(circle at 85% 14%, rgba(14, 165, 233, 0.10), transparent 18%), linear-gradient(135deg, #071018 0%, #101827 38%, #1a2133 100%)",
+        "sidebar_bg": "linear-gradient(180deg, #0a0f17 0%, #151b26 100%)",
+        "sidebar_border": "rgba(214, 176, 109, 0.14)",
+        "card_bg": "linear-gradient(180deg, rgba(17, 24, 39, 0.86) 0%, rgba(24, 31, 47, 0.86) 100%)",
+        "card_border": "rgba(214, 176, 109, 0.16)",
+        "card_shadow": "0 24px 48px rgba(2, 6, 23, 0.34)",
+        "eyebrow_bg": "rgba(214, 176, 109, 0.12)",
+        "eyebrow_text": "#f1ca73",
+        "title": "#f7f3eb",
+        "muted": "#9ca7b7",
+        "metric": "#f1ca73",
+        "result": "#f7f3eb",
+        "highlight_bg": "linear-gradient(180deg, rgba(12,19,31,0.96) 0%, rgba(19,28,43,0.96) 100%)",
+        "highlight_border": "rgba(214, 176, 109, 0.14)",
+        "highlight_text": "#e6edf7",
+        "nav_caption": "#8f99aa",
+        "button_bg": "rgba(255, 255, 255, 0.02)",
+        "button_text": "#e8edf4",
+        "button_hover_bg": "linear-gradient(90deg, rgba(214, 176, 109, 0.16) 0%, rgba(214, 176, 109, 0.06) 100%)",
+        "button_hover_text": "#fffaf0",
+        "input_bg": "rgba(11, 18, 29, 0.92)",
+        "input_text": "#e8edf4",
+        "input_border": "rgba(214, 176, 109, 0.18)",
+        "file_bg": "rgba(11, 18, 29, 0.68)",
+        "accent": "#d6b06d",
+        "accent_soft": "rgba(214, 176, 109, 0.12)",
+        "surface_alt": "rgba(31, 40, 58, 0.74)",
+        "divider": "rgba(214, 176, 109, 0.08)",
+        "primary_label": "Ink and brass dark mode",
     }
 
 st.markdown(
@@ -170,7 +170,7 @@ st.markdown(
             background: {theme["card_bg"]};
             border: 1px solid {theme["card_border"]};
             box-shadow: {theme["card_shadow"]};
-            backdrop-filter: blur(12px);
+            backdrop-filter: blur(14px);
             padding: 1.15rem 1.2rem;
             margin-bottom: 0.85rem;
         }}
@@ -180,7 +180,8 @@ st.markdown(
             position: relative;
             overflow: hidden;
             background:
-                radial-gradient(circle at top right, {theme["accent_soft"]}, transparent 30%),
+                radial-gradient(circle at 86% 16%, {theme["accent_soft"]}, transparent 28%),
+                radial-gradient(circle at 18% 100%, rgba(14, 116, 144, 0.10), transparent 34%),
                 linear-gradient(135deg, {theme["card_bg"]} 0%, {theme["surface_alt"]} 100%);
         }}
         .hero-card::after {{
@@ -237,16 +238,22 @@ st.markdown(
         [data-testid="stSidebar"] .stButton > button {{
             width: 100%;
             justify-content: flex-start;
-            border-radius: 12px;
+            border-radius: 14px;
             border: 1px solid {theme["card_border"]};
             background: {theme["button_bg"]};
             color: {theme["button_text"]};
-            padding: 0.72rem 0.9rem;
+            padding: 0.8rem 0.95rem;
             font-weight: 700;
             margin-bottom: 0.3rem;
-            box-shadow: none;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+            transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
         }}
-        [data-testid="stSidebar"] .stButton > button:hover {{ border-color: rgba(125, 211, 252, 0.28); background: {theme["button_hover_bg"]}; color: {theme["button_hover_text"]}; }}
+        [data-testid="stSidebar"] .stButton > button:hover {{
+            border-color: {theme["accent"]};
+            background: {theme["button_hover_bg"]};
+            color: {theme["button_hover_text"]};
+            transform: translateX(4px);
+        }}
         .stTextArea textarea, .stTextInput input {{
             background: {theme["input_bg"]} !important;
             color: {theme["input_text"]} !important;
@@ -258,10 +265,25 @@ st.markdown(
         .stMultiSelect div[data-baseweb="select"] > div,
         .stFileUploader small,
         .stCaption,
+        .stAlert,
+        .stAlert p,
+        .stExpander summary,
+        .stExpander details summary,
+        .stExpander label,
+        .stMarkdown,
+        .stMarkdown strong,
+        .highlight-panel strong,
+        .result-card strong,
+        .score-list strong,
+        .stTextInput label,
+        .stTextArea label,
         [data-testid="stMarkdownContainer"] p,
-        [data-testid="stMarkdownContainer"] li {{
+        [data-testid="stMarkdownContainer"] li,
+        [data-testid="stMarkdownContainer"] span,
+        [data-testid="stMarkdownContainer"] strong {{
             color: {theme["text"]} !important;
         }}
+        .stExpander summary svg, .stExpander details summary svg {{ fill: {theme["text"]} !important; }}
         .stTextArea textarea:focus, .stTextInput input:focus {{ border-color: rgba(125, 211, 252, 0.4) !important; box-shadow: 0 0 0 1px rgba(125, 211, 252, 0.22) !important; }}
         .stFileUploader {{ background: {theme["file_bg"]}; border-radius: 16px; border: 1px dashed rgba(148, 163, 184, 0.2); padding: 0.75rem 0.9rem; }}
         .stDownloadButton button, .stButton button[kind="primary"] {{ border-radius: 12px !important; }}

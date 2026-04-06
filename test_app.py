@@ -95,6 +95,32 @@ class ContractAnalyzerTests(unittest.TestCase):
             result["findings"],
         )
         self.assertIn("INR 5000", answer)
+        self.assertIn("invoice", answer.lower())
+
+    def test_contract_question_answering_returns_grounded_termination_sentence(self):
+        text = "Either party may terminate this agreement with 30 days notice after written warning."
+        result = run_full_analysis(text, "termination")
+        answer = answer_question(
+            "What is the termination clause?",
+            text,
+            result["summary"]["entities"],
+            result["summary"]["obligations"],
+            result["findings"],
+        )
+        self.assertIn("30 days notice", answer.lower())
+
+    def test_contract_question_answering_returns_specific_obligation(self):
+        text = "Vendor shall deliver the goods within 7 days. Client shall pay INR 5000 on receipt of invoice."
+        result = run_full_analysis(text, "obligation")
+        answer = answer_question(
+            "Who must deliver the goods?",
+            text,
+            result["summary"]["entities"],
+            result["summary"]["obligations"],
+            result["findings"],
+        )
+        self.assertIn("Vendor", answer)
+        self.assertIn("deliver", answer.lower())
 
     def test_reviser_reduces_score_for_risky_contract(self):
         text = "Either party may terminate immediately upon breach and unlimited liability shall apply."
