@@ -169,7 +169,7 @@ st.session_state.setdefault("contract_text", "")
 st.session_state.setdefault("uploaded_contract_text", "")
 st.session_state.setdefault("uploaded_contract_name", "Uploaded Contract")
 st.session_state.setdefault("current_page", "🏠 Home")
-st.session_state.setdefault("theme_mode", "Light")
+st.session_state.setdefault("theme_mode", "Dark")
 st.session_state.setdefault("reported_issues", [])
 st.session_state.setdefault("issue_type", "UI issue")
 st.session_state.setdefault("issue_details", "")
@@ -179,7 +179,7 @@ st.session_state.setdefault("analysis_archive", load_analysis_archive())
 st.session_state.setdefault("clause_filter", "")
 st.session_state.setdefault("presentation_mode", False)
 
-theme_mode = st.session_state.get("theme_mode", "Light")
+theme_mode = st.session_state.get("theme_mode", "Dark")
 if theme_mode == "Light":
     theme = {
         "text": "#182230",
@@ -371,6 +371,17 @@ st.markdown(
             color: {theme["button_hover_text"]};
             transform: translateX(4px);
         }}
+        .stButton > button {{
+            border-radius: 14px !important;
+            background: {theme["card_bg"]} !important;
+            color: {theme["title"]} !important;
+            border: 1px solid {theme["card_border"]} !important;
+            box-shadow: 0 10px 20px rgba(15, 23, 42, 0.06);
+        }}
+        .stButton > button:hover {{
+            border-color: {theme["accent"]} !important;
+            color: {theme["title"]} !important;
+        }}
         .stTextArea textarea, .stTextInput input {{
             background: {theme["input_bg"]} !important;
             color: {theme["input_text"]} !important;
@@ -379,6 +390,9 @@ st.markdown(
         }}
         .stSelectbox div[data-baseweb="select"] > div,
         .stSelectbox div[role="combobox"],
+        .stSelectbox input,
+        .stSelectbox span,
+        div[data-baseweb="popover"] *,
         .stMultiSelect div[data-baseweb="select"] > div,
         .stFileUploader small,
         [data-testid="stFileUploaderDropzoneInstructions"],
@@ -408,7 +422,7 @@ st.markdown(
         }}
         .stExpander summary svg, .stExpander details summary svg {{ fill: {theme["text"]} !important; }}
         .stTextArea textarea:focus, .stTextInput input:focus {{ border-color: rgba(125, 211, 252, 0.4) !important; box-shadow: 0 0 0 1px rgba(125, 211, 252, 0.22) !important; }}
-        .stFileUploader {{ background: {theme["file_bg"]}; border-radius: 16px; border: 1px dashed rgba(148, 163, 184, 0.2); padding: 0.75rem 0.9rem; }}
+        .stFileUploader {{ background: {theme["file_bg"]}; border-radius: 16px; border: 1px dashed rgba(148, 163, 184, 0.2); padding: 0.75rem 0.9rem; color: {theme["text"]} !important; }}
         .stDownloadButton button, .stButton button[kind="primary"] {{ border-radius: 12px !important; }}
         .stSelectbox label, .stToggle label, .stFileUploader label {{ color: {theme["title"]} !important; }}
         .stDataFrame, .stTable {{ color: {theme["text"]}; }}
