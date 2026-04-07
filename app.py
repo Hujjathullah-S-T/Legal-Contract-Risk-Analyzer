@@ -211,6 +211,12 @@ if theme_mode == "Light":
         "accent_soft": "rgba(236, 72, 153, 0.10)",
         "surface_alt": "rgba(235, 244, 255, 0.88)",
         "divider": "rgba(56, 189, 248, 0.08)",
+        "risk_high": "#be123c",
+        "risk_high_bg": "rgba(225,29,72,0.12)",
+        "risk_medium": "#b45309",
+        "risk_medium_bg": "rgba(245,158,11,0.14)",
+        "risk_low": "#047857",
+        "risk_low_bg": "rgba(16,185,129,0.14)",
         "primary_label": "Editorial light mode",
     }
 else:
@@ -244,6 +250,12 @@ else:
         "accent_soft": "rgba(34, 211, 238, 0.12)",
         "surface_alt": "rgba(31, 28, 57, 0.76)",
         "divider": "rgba(168, 85, 247, 0.10)",
+        "risk_high": "#fda4af",
+        "risk_high_bg": "rgba(251,113,133,0.18)",
+        "risk_medium": "#fde68a",
+        "risk_medium_bg": "rgba(251,191,36,0.18)",
+        "risk_low": "#86efac",
+        "risk_low_bg": "rgba(74,222,128,0.18)",
         "primary_label": "Aurora dark mode",
     }
 
@@ -309,9 +321,9 @@ st.markdown(
         .result-term {{ font-weight: 800; color: {theme["result"]}; }}
         .highlight-panel {{ padding: 1rem 1.1rem; border-radius: 16px; border: 1px solid {theme["highlight_border"]}; background: {theme["highlight_bg"]}; line-height: 1.78; color: {theme["highlight_text"]}; }}
         .sentence-highlight {{ padding: 0.08rem 0.18rem; border-radius: 0.35rem; border-bottom: 2px dotted currentColor; }}
-        .high {{ color: #e11d48; background: rgba(225,29,72,0.12); }}
-        .medium {{ color: #d97706; background: rgba(217,119,6,0.14); }}
-        .low {{ color: #059669; background: rgba(5,150,105,0.14); }}
+        .high {{ color: {theme["risk_high"]}; background: {theme["risk_high_bg"]}; }}
+        .medium {{ color: {theme["risk_medium"]}; background: {theme["risk_medium_bg"]}; }}
+        .low {{ color: {theme["risk_low"]}; background: {theme["risk_low_bg"]}; }}
         .neutral {{ color: #0f766e; background: rgba(15,118,110,0.12); }}
         .badge {{
             display: inline-block;
@@ -392,6 +404,10 @@ st.markdown(
         .stSelectbox div[role="combobox"],
         .stSelectbox input,
         .stSelectbox span,
+        .stFileUploader,
+        .stFileUploader * ,
+        [data-testid="stFileUploader"] *,
+        [data-testid="stFileUploaderDropzone"] *,
         div[data-baseweb="popover"] *,
         .stMultiSelect div[data-baseweb="select"] > div,
         .stFileUploader small,
@@ -414,10 +430,21 @@ st.markdown(
         .score-list strong,
         .stTextInput label,
         .stTextArea label,
+        .stTextArea textarea::placeholder,
+        .stTextInput input::placeholder,
+        .stForm label,
+        .stForm p,
+        .stForm span,
+        .stForm div,
         [data-testid="stMarkdownContainer"] p,
         [data-testid="stMarkdownContainer"] li,
         [data-testid="stMarkdownContainer"] span,
         [data-testid="stMarkdownContainer"] strong {{
+            color: {theme["text"]} !important;
+        }}
+        [data-testid="stFileUploaderDropzone"] svg,
+        [data-testid="stFileUploader"] svg {{
+            fill: {theme["text"]} !important;
             color: {theme["text"]} !important;
         }}
         .stExpander summary svg, .stExpander details summary svg {{ fill: {theme["text"]} !important; }}
